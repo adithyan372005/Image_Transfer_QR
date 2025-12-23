@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Secure File Transfer - Home{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="header">
+        <h1>🔐 Secure File Transfer</h1>
+        <p>Transfer images and PDFs securely using advanced cryptography</p>
+    </div>
+
+    <div class="security-features">
+        <h3>Security Features</h3>
+        <ul>
+            <li>Huffman Compression for efficient storage</li>
+            <li>AES-256 encryption for file security</li>
+            <li>ElGamal cryptography for key exchange</li>
+            <li>QR code with URL-based transfer</li>
+            <li>PIN-based access control</li>
+            <li>Time-limited access (auto-expiry)</li>
+            <li>One-time access (auto-delete)</li>
+            <li>Hash verification for tamper detection</li>
+        </ul>
+    </div>
+
+    <div style="margin: 40px 0;">
+        <a href="/send" class="btn">
+            📤 Send File
+        </a>
+        <a href="/receive" class="btn btn-secondary">
+            📥 Receive File
+        </a>
+    </div>
+
+    <div style="color: #718096; font-size: 0.9em; margin-top: 30px;">
+        <p><strong>Supported Files:</strong> JPG, PNG, GIF, PDF</p>
+        <p><strong>No Login Required:</strong> Session-based security</p>
+        <p><strong>Privacy:</strong> Files auto-delete after access</p>
+    </div>
+</div>
+{% endblock %}

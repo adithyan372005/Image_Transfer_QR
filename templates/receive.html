@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}Receive File - Secure Transfer{% endblock %}
+
+{% block content %}
+<a href="/" class="back-btn">← Back to Home</a>
+
+<div class="container">
+    <div class="header">
+        <h1>📥 Receive File</h1>
+        <p>Enter your PIN to decrypt and access the file</p>
+    </div>
+
+    <form id="decryptForm">
+        <div class="form-group">
+            <label for="transactionId">Transaction ID</label>
+            <input type="text" id="transactionId" name="transaction_id" class="form-control" 
+                   value="{{ transaction_id }}" readonly required>
+            <small style="color: #718096; margin-top: 5px; display: block;">
+                Auto-filled from QR code scan
+            </small>
+        </div>
+
+        <div class="form-group">
+            <label for="pinInput">Access PIN</label>
+            <input type="text" id="pinInput" name="pin" class="form-control" 
+                   placeholder="Enter 6-character PIN" maxlength="6" style="text-transform: uppercase; letter-spacing: 2px; font-weight: bold;" required>
+            <small style="color: #718096; margin-top: 5px; display: block;">
+                Enter the PIN shared by the sender
+            </small>
+        </div>
+
+        <button type="submit" class="btn">
+            🔓 Decrypt File
+        </button>
+    </form>
+
+    <div class="loading">
+        <p>🔄 Decrypting your file...</p>
+        <p style="font-size: 0.9em; color: #718096;">
+            Verifying PIN → Decrypting → Decompressing
+        </p>
+    </div>
+
+    <!-- Results will be shown here -->
+    <div id="results" style="display: none;">
+        <!-- Content will be populated by JavaScript -->
+    </div>
+
+    <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin: 20px 0;">
+        <h3 style="color: #4a5568; margin-bottom: 15px;">📋 Instructions</h3>
+        <ol style="text-align: left; color: #718096; padding-left: 20px;">
+            <li>Make sure the Transaction ID is correct (auto-filled from QR scan)</li>
+            <li>Enter the 6-character PIN provided by the sender</li>
+            <li>Click "Decrypt File" to access your file</li>
+            <li>You have maximum 3 attempts to enter the correct PIN</li>
+            <li>The file will be deleted after successful access (one-time use)</li>
+        </ol>
+    </div>
+
+    <div style="background: #fed7d7; padding: 15px; border-radius: 8px; margin: 20px 0;">
+        <h4 style="color: #742a2a; margin-bottom: 10px;">⚠️ Security Notice</h4>
+        <ul style="text-align: left; color: #742a2a; font-size: 0.9em; padding-left: 20px;">
+            <li>Links expire automatically for security</li>
+            <li>Files are permanently deleted after access</li>
+            <li>All data is encrypted end-to-end</li>
+            <li>No user accounts or personal data stored</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+document.getElementById('decryptForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    clearAlerts();
+    const transactionId = document.getElementById('transactionId').value.trim();
+    const pin = document.getElementById('pinInput').value.trim().toUpperCase();
+    
+    if (!transactionId) {
+        showAlert('Transaction ID is required.');
+        return;
+    }
+    
+    if (!pin) {
+        showAlert('Please enter the access PIN.');
+        return;
+    }
+    
+    if (pin.length !== 6) {
+        showAlert('PIN must be exactly 6 characters.');
+        return;
+    }
+    
+    showLoading();
+    document.querySelector('form').style.display = 'none';
+    
+    try {
+        const response = await fetch('/decrypt', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                transaction_id: transactionId,
+                pin: pin
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showSuccess(result);
+        } else {
+            showAlert(result.error || 'Decryption failed.');
+            document.querySelector('form').style.display = 'block';
+            
+            // Focus back to PIN input for retry
+            document.getElementById('pinInput').focus();
+            document.getElementById('pinInput').select();
+        }
+    } catch (error) {
+        console.error('Decryption error:', error);
+        showAlert('Network error. Please check your connection and try again.');
+        document.querySelector('form').style.display = 'block';
+    }
+    
+    hideLoading();
+});
+
+function showSuccess(result) {
+    const resultsDiv = document.getElementById('results');
+    
+    if (result.file_type === 'image') {
+        resultsDiv.innerHTML = `
+            <div class="alert alert-success">
+                <strong>File decrypted successfully!</strong> Your image is displayed below.
+            </div>
+            <div style="margin: 20px 0;">
+                <h3>📷 ${result.file_name}</h3>
+                <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin: 15px 0;">
+                    <img src="data:image/jpeg;base64,${result.file_data}" 
+                         alt="Decrypted Image" 
+                         style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                </div>
+                <p style="color: #718096; font-size: 0.9em;">
+                    Right-click to save the image to your device
+                </p>
+            </div>
+            <div class="alert alert-warning">
+                <strong>Security Notice:</strong> This file has been permanently deleted from our servers for your privacy.
+            </div>
+        `;
+    } else if (result.file_type === 'pdf') {
+        resultsDiv.innerHTML = `
+            <div class="alert alert-success">
+                <strong>File decrypted successfully!</strong> Click below to download your PDF.
+            </div>
+            <div style="margin: 20px 0;">
+                <h3>📄 ${result.file_name}</h3>
+                <a href="${result.download_url}" class="btn" style="margin: 20px 0;" download>
+                    📥 Download PDF File
+                </a>
+                <p style="color: #718096; font-size: 0.9em;">
+                    Your PDF file is ready for download
+                </p>
+            </div>
+            <div class="alert alert-warning">
+                <strong>Security Notice:</strong> This file has been permanently deleted from our servers for your privacy.
+            </div>
+        `;
+    }
+    
+    resultsDiv.style.display = 'block';
+    showAlert('File decrypted and ready!', 'success');
+}
+
+// Auto-focus PIN input
+document.addEventListener('DOMContentLoaded', function() {
+    const pinInput = document.getElementById('pinInput');
+    if (pinInput) {
+        pinInput.focus();
+    }
+});
+
+// Format PIN input in real-time
+document.getElementById('pinInput').addEventListener('input', function(e) {
+    this.value = this.value.toUpperCase();
+});
+
+// Handle transaction ID from URL
+document.addEventListener('DOMContentLoaded', function() {
+    const transactionId = document.getElementById('transactionId').value;
+    if (!transactionId) {
+        showAlert('No transaction ID found. Please scan the QR code again.', 'warning');
+    }
+});
+</script>
+{% endblock %}

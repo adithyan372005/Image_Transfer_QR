@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}Send File - Secure Transfer{% endblock %}
+
+{% block content %}
+<a href="/" class="back-btn">← Back to Home</a>
+
+<div class="container">
+    <div class="header">
+        <h1>📤 Send File</h1>
+        <p>Upload and encrypt your file securely</p>
+    </div>
+
+    <form id="uploadForm" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="fileInput">Select File (Image or PDF)</label>
+            <input type="file" id="fileInput" name="file" class="form-control" 
+                   accept=".jpg,.jpeg,.png,.gif,.pdf" required>
+            <small style="color: #718096; margin-top: 5px; display: block;">
+                Supported: JPG, PNG, GIF, PDF (Max: 10MB)
+            </small>
+        </div>
+
+        <div class="form-group">
+            <label for="expirySelect">Link Expiry Time</label>
+            <select id="expirySelect" name="expiry" class="form-control">
+                <option value="2">2 minutes</option>
+                <option value="5" selected>5 minutes</option>
+                <option value="10">10 minutes</option>
+            </select>
+        </div>
+
+        <button type="submit" class="btn">
+            🔐 Encrypt & Generate QR
+        </button>
+    </form>
+
+    <div class="loading">
+        <p>🔄 Processing your file...</p>
+        <p style="font-size: 0.9em; color: #718096;">
+            Compressing → Encrypting → Generating QR Code
+        </p>
+    </div>
+
+    <!-- Results will be shown here -->
+    <div id="results" style="display: none;">
+        <div class="alert alert-success">
+            <strong>File encrypted successfully!</strong> Share the QR code and PIN with the receiver.
+        </div>
+
+        <div class="qr-container">
+            <h3 style="margin-bottom: 15px;">📱 QR Code</h3>
+            <div id="qrCode"></div>
+            <p style="margin-top: 10px; color: #718096; font-size: 0.9em;">
+                Scan with Google Lens or any QR scanner
+            </p>
+        </div>
+
+        <div style="margin: 20px 0;">
+            <h3>🔑 Access PIN</h3>
+            <div class="pin-display" id="pinDisplay"></div>
+            <p style="color: #718096; font-size: 0.9em;">
+                Share this PIN with the receiver (required for decryption)
+            </p>
+        </div>
+
+        <div style="background: #fefcbf; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <h4 style="color: #744210; margin-bottom: 10px;">⚠️ Important</h4>
+            <ul style="text-align: left; color: #744210; font-size: 0.9em;">
+                <li>Link expires: <span id="expiryTime"></span></li>
+                <li>Maximum 3 PIN attempts allowed</li>
+                <li>File will be deleted after successful access</li>
+                <li>Keep this page open until receiver accesses the file</li>
+            </ul>
+        </div>
+
+        <button onclick="sendAnother()" class="btn btn-secondary">
+            📤 Send Another File
+        </button>
+    </div>
+</div>
+
+<script>
+document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    clearAlerts();
+    const fileInput = document.getElementById('fileInput');
+    const expirySelect = document.getElementById('expirySelect');
+    
+    if (!fileInput.files[0]) {
+        showAlert('Please select a file to upload.');
+        return;
+    }
+    
+    const file = fileInput.files[0];
+    
+    // Validate file size (10MB max)
+    if (file.size > 10 * 1024 * 1024) {
+        showAlert('File size must be less than 10MB.');
+        return;
+    }
+    
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+        showAlert('Please select a valid image (JPG, PNG, GIF) or PDF file.');
+        return;
+    }
+    
+    showLoading();
+    document.querySelector('form').style.display = 'none';
+    
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('expiry', expirySelect.value);
+        
+        const response = await fetch('/upload', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Show results
+            document.getElementById('qrCode').innerHTML = `<img src="${result.qr_code}" alt="QR Code" style="max-width: 300px; height: auto;">`;
+            document.getElementById('pinDisplay').textContent = result.pin;
+            document.getElementById('expiryTime').textContent = result.expiry_time;
+            
+            document.getElementById('results').style.display = 'block';
+            
+            // Show success message
+            showAlert('File encrypted and QR code generated successfully!', 'success');
+        } else {
+            showAlert(result.error || 'Upload failed. Please try again.');
+            document.querySelector('form').style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Upload error:', error);
+        showAlert('Network error. Please check your connection and try again.');
+        document.querySelector('form').style.display = 'block';
+    }
+    
+    hideLoading();
+});
+
+// File input change handler to show file info
+document.getElementById('fileInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+        const fileInfo = document.createElement('div');
+        fileInfo.style.marginTop = '10px';
+        fileInfo.style.color = '#718096';
+        fileInfo.style.fontSize = '0.9em';
+        fileInfo.innerHTML = `
+            <strong>Selected:</strong> ${file.name} (${formatFileSize(file.size)})
+        `;
+        
+        // Remove previous file info
+        const existing = this.parentNode.querySelector('.file-info');
+        if (existing) existing.remove();
+        
+        fileInfo.className = 'file-info';
+        this.parentNode.appendChild(fileInfo);
+    }
+});
+
+function sendAnother() {
+    // Reset form
+    document.getElementById('uploadForm').reset();
+    document.getElementById('results').style.display = 'none';
+    document.querySelector('form').style.display = 'block';
+    clearAlerts();
+    
+    // Remove file info
+    const fileInfo = document.querySelector('.file-info');
+    if (fileInfo) fileInfo.remove();
+}
+</script>
+{% endblock %}
