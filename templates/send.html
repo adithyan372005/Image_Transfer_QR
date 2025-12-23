@@ -22,6 +22,15 @@
         </div>
 
         <div class="form-group">
+            <label for="intendedReceiverName">Intended Receiver Name</label>
+            <input type="text" id="intendedReceiverName" name="intended_receiver_name" class="form-control" 
+                   placeholder="Enter the receiver's name" maxlength="50" required>
+            <small style="color: #718096; margin-top: 5px; display: block;">
+                Required: The receiver must enter this exact name to access the file
+            </small>
+        </div>
+
+        <div class="form-group">
             <label for="expirySelect">Link Expiry Time</label>
             <select id="expirySelect" name="expiry" class="form-control">
                 <option value="2">2 minutes</option>
@@ -64,6 +73,19 @@
             </p>
         </div>
 
+        <!-- Compression Statistics -->
+        <div id="compressionStats" style="background: #e6fffa; padding: 15px; border-radius: 8px; margin: 20px 0; display: none;">
+            <h4 style="color: #234e52; margin-bottom: 10px;">📊 Compression Statistics</h4>
+            <div style="text-align: left; color: #234e52; font-size: 0.9em;">
+                <p><strong>Original Size:</strong> <span id="originalSize"></span></p>
+                <p><strong>Compressed Size:</strong> <span id="compressedSize"></span></p>
+                <p><strong>Compression Ratio:</strong> <span id="compressionRatio"></span></p>
+                <p style="font-size: 0.8em; color: #2d3748; margin-top: 10px;">
+                    🔒 Your file was compressed before encryption for optimal security and transfer speed.
+                </p>
+            </div>
+        </div>
+
         <div style="background: #fefcbf; padding: 15px; border-radius: 8px; margin: 20px 0;">
             <h4 style="color: #744210; margin-bottom: 10px;">⚠️ Important</h4>
             <ul style="text-align: left; color: #744210; font-size: 0.9em;">
@@ -72,6 +94,17 @@
                 <li>File will be deleted after successful access</li>
                 <li>Keep this page open until receiver accesses the file</li>
             </ul>
+        </div>
+
+        <!-- Access Status -->
+        <div id="statusSection" style="background: #f0fff4; padding: 15px; border-radius: 8px; margin: 20px 0; display: none;">
+            <h4 style="color: #22543d; margin-bottom: 10px;">📊 Access Status</h4>
+            <div id="statusInfo" style="color: #22543d; font-size: 0.9em;">
+                <!-- Status information will be displayed here -->
+            </div>
+            <button onclick="checkStatus()" class="btn btn-secondary" style="margin-top: 10px; font-size: 0.9em;">
+                🔄 Refresh Status
+            </button>
         </div>
 
         <button onclick="sendAnother()" class="btn btn-secondary">
@@ -87,9 +120,15 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
     clearAlerts();
     const fileInput = document.getElementById('fileInput');
     const expirySelect = document.getElementById('expirySelect');
+    const intendedReceiverName = document.getElementById('intendedReceiverName');
     
     if (!fileInput.files[0]) {
         showAlert('Please select a file to upload.');
+        return;
+    }
+    
+    if (!intendedReceiverName.value.trim()) {
+        showAlert('Please enter the intended receiver name.');
         return;
     }
     
@@ -115,6 +154,7 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
         const formData = new FormData();
         formData.append('file', file);
         formData.append('expiry', expirySelect.value);
+        formData.append('intended_receiver_name', intendedReceiverName.value.trim());
         
         const response = await fetch('/upload', {
             method: 'POST',
@@ -124,10 +164,27 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
         const result = await response.json();
         
         if (result.success) {
+            // Store transaction ID globally for status checking
+            window.currentTransactionId = result.transaction_id;
+            
             // Show results
             document.getElementById('qrCode').innerHTML = `<img src="${result.qr_code}" alt="QR Code" style="max-width: 300px; height: auto;">`;
             document.getElementById('pinDisplay').textContent = result.pin;
             document.getElementById('expiryTime').textContent = result.expiry_time;
+            
+            // Show compression statistics
+            document.getElementById('originalSize').textContent = formatFileSize(result.original_size);
+            document.getElementById('compressedSize').textContent = formatFileSize(result.compressed_size);
+            document.getElementById('compressionRatio').textContent = `${result.compression_ratio.toFixed(2)}%`;
+            document.getElementById('compressionStats').style.display = 'block';
+            
+            // Show status section and start checking
+            document.getElementById('statusSection').style.display = 'block';
+            checkStatus();
+            
+            // Auto-check status every 10 seconds
+            if (window.statusInterval) clearInterval(window.statusInterval);
+            window.statusInterval = setInterval(checkStatus, 10000);
             
             document.getElementById('results').style.display = 'block';
             
@@ -167,16 +224,84 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
     }
 });
 
+async function checkStatus() {
+    if (!window.currentTransactionId) return;
+    
+    try {
+        const response = await fetch(`/status/${window.currentTransactionId}`);
+        const result = await response.json();
+        
+        if (result.error) {
+            document.getElementById('statusInfo').innerHTML = `
+                <p><strong>Status:</strong> ❌ ${result.error}</p>
+            `;
+            // Stop checking if transaction not found
+            if (window.statusInterval) clearInterval(window.statusInterval);
+            return;
+        }
+        
+        const statusInfo = document.getElementById('statusInfo');
+        let statusHtml = `<p><strong>Status:</strong> `;
+        
+        switch(result.status) {
+            case 'ACTIVE':
+                statusHtml += `🟡 Waiting for receiver</p>`;
+                statusHtml += `<p><strong>Created:</strong> ${new Date(result.created_at).toLocaleString()}</p>`;
+                statusHtml += `<p><strong>Expires:</strong> ${new Date(result.expiry_time).toLocaleString()}</p>`;
+                break;
+                
+            case 'ACCESSED':
+                statusHtml += `🟠 File accessed, waiting for download</p>`;
+                if (result.receiver_name) {
+                    statusHtml += `<p><strong>Accessed by:</strong> ${result.receiver_name}</p>`;
+                }
+                statusHtml += `<p><strong>Access time:</strong> ${new Date(result.access_time).toLocaleString()}</p>`;
+                break;
+                
+            case 'DOWNLOADED':
+                statusHtml += `✅ File downloaded successfully</p>`;
+                if (result.receiver_name) {
+                    statusHtml += `<p><strong>Downloaded by:</strong> ${result.receiver_name}</p>`;
+                }
+                statusHtml += `<p><strong>Download time:</strong> ${new Date(result.access_time).toLocaleString()}</p>`;
+                statusHtml += `<p style="color: #22543d; font-weight: bold;">🔒 All data has been securely deleted</p>`;
+                // Stop checking after download
+                if (window.statusInterval) clearInterval(window.statusInterval);
+                break;
+                
+            default:
+                statusHtml += `❓ ${result.status}</p>`;
+        }
+        
+        statusInfo.innerHTML = statusHtml;
+        
+    } catch (error) {
+        console.error('Status check error:', error);
+        document.getElementById('statusInfo').innerHTML = `
+            <p><strong>Status:</strong> ❌ Unable to check status</p>
+        `;
+    }
+}
+
 function sendAnother() {
+    // Clear status checking
+    if (window.statusInterval) clearInterval(window.statusInterval);
+    window.currentTransactionId = null;
+    
     // Reset form
     document.getElementById('uploadForm').reset();
     document.getElementById('results').style.display = 'none';
+    document.getElementById('statusSection').style.display = 'none';
+    document.getElementById('compressionStats').style.display = 'none';
     document.querySelector('form').style.display = 'block';
     clearAlerts();
     
     // Remove file info
     const fileInfo = document.querySelector('.file-info');
     if (fileInfo) fileInfo.remove();
+    
+    // Clear intended receiver name field
+    document.getElementById('intendedReceiverName').value = '';
 }
 </script>
 {% endblock %}

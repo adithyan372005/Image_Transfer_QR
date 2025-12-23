@@ -59,11 +59,13 @@ def upload_file():
         
         # Read file data
         file_data = file.read()
-        logger.info(f"File uploaded: {file.filename} ({len(file_data)} bytes)")
+        original_size = len(file_data)
+        logger.info(f"File uploaded: {file.filename} ({original_size} bytes)")
         
-        # Get expiry time from request
+        # Get expiry time and intended receiver name from request
         expiry_minutes = int(request.form.get('expiry', 5))
         expiry_time = datetime.now() + timedelta(minutes=expiry_minutes)
+        intended_receiver_name = request.form.get('intended_receiver_name', '').strip()
         
         # Step 1: Generate ElGamal key pair
         elgamal = ElGamalCrypto()
@@ -73,7 +75,18 @@ def upload_file():
         # Step 2: Compress file using Huffman coding
         huffman = HuffmanCompression()
         compressed_data = huffman.compress(file_data)
-        logger.info("File compressed using Huffman")
+        compressed_size = len(compressed_data)
+        
+        # Calculate compression ratio
+        if original_size > 0:
+            compression_ratio = ((original_size - compressed_size) / original_size) * 100
+        else:
+            compression_ratio = 0.0
+        
+        logger.info(f"File compressed using Huffman")
+        logger.info(f"Original size: {original_size} bytes")
+        logger.info(f"Compressed size: {compressed_size} bytes") 
+        logger.info(f"Compression ratio: {compression_ratio:.2f}%")
         
         # Step 3: Generate random AES key
         aes_crypto = AESCrypto()
@@ -110,7 +123,11 @@ def upload_file():
             hashed_pin=hashed_pin,
             expiry_time=expiry_time,
             file_name=file.filename,
-            huffman_tree=base64.b64encode(huffman.get_tree()).decode()
+            huffman_tree=base64.b64encode(huffman.get_tree()).decode(),
+            original_size=original_size,
+            compressed_size=compressed_size,
+            compression_ratio=compression_ratio,
+            intended_receiver_name=intended_receiver_name
         )
         logger.info(f"Transaction stored with ID: {transaction_id}")
         
@@ -124,7 +141,10 @@ def upload_file():
             'transaction_id': transaction_id,
             'pin': pin,
             'qr_code': qr_code_data,
-            'expiry_time': expiry_time.strftime('%Y-%m-%d %H:%M:%S')
+            'expiry_time': expiry_time.strftime('%Y-%m-%d %H:%M:%S'),
+            'original_size': original_size,
+            'compressed_size': compressed_size,
+            'compression_ratio': compression_ratio
         })
         
     except Exception as e:
@@ -143,6 +163,8 @@ def decrypt_file():
     try:
         transaction_id = request.json.get('transaction_id')
         pin = request.json.get('pin')
+        receiver_name = request.json.get('receiver_name', '')
+        user_agent = request.headers.get('User-Agent', '')
         
         if not transaction_id or not pin:
             return jsonify({'error': 'Transaction ID and PIN are required'}), 400
@@ -163,6 +185,18 @@ def decrypt_file():
             db_manager.delete_transaction(transaction_id)
             logger.info("Locked access - too many attempts")
             return jsonify({'error': 'Access locked due to too many invalid attempts'}), 423
+        
+        # Verify intended receiver name (before PIN verification for security)
+        intended_receiver = transaction.get('intended_receiver_name', '').strip()
+        if intended_receiver and receiver_name.strip() != intended_receiver:
+            # Increment attempt count for name mismatch
+            db_manager.increment_attempts(transaction_id)
+            new_count = transaction['attempt_count'] + 1
+            logger.info(f"Receiver name mismatch: expected '{intended_receiver}', got '{receiver_name}' - attempt {new_count}/3")
+            return jsonify({
+                'error': f'Receiver name does not match ({new_count}/3)',
+                'attempts_remaining': 3 - new_count
+            }), 401
         
         # Verify PIN
         hashed_pin = hashlib.sha256(pin.encode()).hexdigest()
@@ -207,6 +241,17 @@ def decrypt_file():
         original_data = huffman.decompress(compressed_data)
         logger.info("File decompressed using Huffman")
         
+        # Update transaction status before preparing response
+        db_manager.update_transaction_status(transaction_id, 'ACCESSED', receiver_name, user_agent)
+        
+        # Enhanced logging for receiver access
+        logger.info("Decryption successful")
+        if receiver_name:
+            logger.info(f"File accessed by: {receiver_name}")
+        logger.info(f"Access time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        if user_agent:
+            logger.info(f"User agent: {user_agent}")
+        
         # Prepare response based on file type
         file_name = transaction['file_name']
         file_ext = os.path.splitext(file_name)[1].lower()
@@ -217,23 +262,29 @@ def decrypt_file():
                 'success': True,
                 'file_type': 'pdf',
                 'file_name': file_name,
-                'download_url': f'/download/{transaction_id}'
+                'download_url': f'/download/{transaction_id}',
+                'receiver_name': receiver_name,
+                'access_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }
             # Store decrypted data temporarily for download
-            db_manager.store_temp_file(transaction_id, original_data)
+            db_manager.store_temp_file(transaction_id, original_data, file_name)
         else:
-            # For images, return base64 data for display
+            # For images, return base64 data for display and download option
             file_data_b64 = base64.b64encode(original_data).decode()
             response_data = {
                 'success': True,
                 'file_type': 'image',
                 'file_name': file_name,
-                'file_data': file_data_b64
+                'file_data': file_data_b64,
+                'download_url': f'/download/{transaction_id}',
+                'receiver_name': receiver_name,
+                'access_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             }
+            # Store decrypted data temporarily for download
+            db_manager.store_temp_file(transaction_id, original_data, file_name)
         
-        # Delete transaction data (one-time access)
-        db_manager.delete_transaction(transaction_id)
-        logger.info("Decryption successful - transaction data deleted")
+        # Note: Transaction will be deleted after download (one-time access)
+        logger.info("File prepared for access - transaction marked as ACCESSED")
         
         return jsonify(response_data)
         
@@ -243,25 +294,75 @@ def decrypt_file():
 
 @app.route('/download/<transaction_id>')
 def download_file(transaction_id):
-    """Download decrypted PDF file"""
+    """Download decrypted file (one-time access)"""
     try:
         file_data = db_manager.get_temp_file(transaction_id)
         if not file_data:
-            return "File not found or expired", 404
+            return "File not found or already downloaded", 404
         
-        # Clean up temp file
+        # Get file extension to determine MIME type
+        file_name = file_data['name']
+        file_ext = os.path.splitext(file_name)[1].lower()
+        
+        if file_ext == '.pdf':
+            mimetype = 'application/pdf'
+        elif file_ext in ['.jpg', '.jpeg']:
+            mimetype = 'image/jpeg'
+        elif file_ext == '.png':
+            mimetype = 'image/png'
+        elif file_ext == '.gif':
+            mimetype = 'image/gif'
+        else:
+            mimetype = 'application/octet-stream'
+        
+        # Clean up temp file and delete transaction (one-time access)
         db_manager.delete_temp_file(transaction_id)
+        db_manager.update_transaction_status(transaction_id, 'DOWNLOADED')
+        db_manager.delete_transaction(transaction_id)
+        
+        logger.info(f"File downloaded: {file_name}")
+        logger.info("One-time access completed - all data deleted")
         
         # Return file for download
         return send_file(
             BytesIO(file_data['data']),
             as_attachment=True,
-            download_name=file_data['name'],
-            mimetype='application/pdf'
+            download_name=file_name,
+            mimetype=mimetype
         )
     except Exception as e:
         logger.error(f"Download error: {str(e)}")
         return "Download failed", 500
+
+@app.route('/status/<transaction_id>')
+def check_status(transaction_id):
+    """Check transaction status for sender"""
+    try:
+        transaction = db_manager.get_transaction(transaction_id)
+        if not transaction:
+            return jsonify({'error': 'Transaction not found or expired'}), 404
+        
+        response_data = {
+            'transaction_id': transaction_id,
+            'status': transaction['status'],
+            'file_name': transaction['file_name'],
+            'created_at': transaction['created_at'],
+            'expiry_time': transaction['expiry_time']
+        }
+        
+        # Add access information if available
+        if transaction['status'] in ['ACCESSED', 'DOWNLOADED']:
+            response_data.update({
+                'receiver_name': transaction['receiver_name'],
+                'access_time': transaction['access_time'],
+                'user_agent': transaction['user_agent']
+            })
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        logger.error(f"Status check error: {str(e)}")
+        return jsonify({'error': 'Status check failed'}), 500
 
 def generate_pin():
     """Generate 6-digit alphanumeric PIN"""

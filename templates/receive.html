@@ -30,6 +30,15 @@
             </small>
         </div>
 
+        <div class="form-group">
+            <label for="receiverName">Your Name (Required)</label>
+            <input type="text" id="receiverName" name="receiver_name" class="form-control" 
+                   placeholder="Enter your name" maxlength="50" required>
+            <small style="color: #718096; margin-top: 5px; display: block;">
+                Required: Must match the name specified by the sender
+            </small>
+        </div>
+
         <button type="submit" class="btn">
             🔓 Decrypt File
         </button>
@@ -76,6 +85,7 @@ document.getElementById('decryptForm').addEventListener('submit', async function
     clearAlerts();
     const transactionId = document.getElementById('transactionId').value.trim();
     const pin = document.getElementById('pinInput').value.trim().toUpperCase();
+    const receiverName = document.getElementById('receiverName').value.trim();
     
     if (!transactionId) {
         showAlert('Transaction ID is required.');
@@ -92,6 +102,11 @@ document.getElementById('decryptForm').addEventListener('submit', async function
         return;
     }
     
+    if (!receiverName) {
+        showAlert('Please enter your name.');
+        return;
+    }
+    
     showLoading();
     document.querySelector('form').style.display = 'none';
     
@@ -103,7 +118,8 @@ document.getElementById('decryptForm').addEventListener('submit', async function
             },
             body: JSON.stringify({
                 transaction_id: transactionId,
-                pin: pin
+                pin: pin,
+                receiver_name: receiverName
             })
         });
         
@@ -131,6 +147,11 @@ document.getElementById('decryptForm').addEventListener('submit', async function
 function showSuccess(result) {
     const resultsDiv = document.getElementById('results');
     
+    // Access information
+    const accessInfo = result.receiver_name 
+        ? `File accessed by <strong>${result.receiver_name}</strong> at ${result.access_time}`
+        : `File accessed at ${result.access_time}`;
+    
     if (result.file_type === 'image') {
         resultsDiv.innerHTML = `
             <div class="alert alert-success">
@@ -143,12 +164,20 @@ function showSuccess(result) {
                          alt="Decrypted Image" 
                          style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
                 </div>
+                <a href="${result.download_url}" class="btn btn-secondary" style="margin: 10px 0;" download>
+                    📥 Download Image File
+                </a>
                 <p style="color: #718096; font-size: 0.9em;">
-                    Right-click to save the image to your device
+                    View above or download to your device (one-time access only)
+                </p>
+            </div>
+            <div style="background: #e6fffa; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                <p style="color: #234e52; font-size: 0.9em; margin: 0;">
+                    📋 ${accessInfo}
                 </p>
             </div>
             <div class="alert alert-warning">
-                <strong>Security Notice:</strong> This file has been permanently deleted from our servers for your privacy.
+                <strong>Security Notice:</strong> This file will be permanently deleted after download for your privacy.
             </div>
         `;
     } else if (result.file_type === 'pdf') {
@@ -162,11 +191,16 @@ function showSuccess(result) {
                     📥 Download PDF File
                 </a>
                 <p style="color: #718096; font-size: 0.9em;">
-                    Your PDF file is ready for download
+                    Your PDF file is ready for download (one-time access only)
+                </p>
+            </div>
+            <div style="background: #e6fffa; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                <p style="color: #234e52; font-size: 0.9em; margin: 0;">
+                    📋 ${accessInfo}
                 </p>
             </div>
             <div class="alert alert-warning">
-                <strong>Security Notice:</strong> This file has been permanently deleted from our servers for your privacy.
+                <strong>Security Notice:</strong> This file will be permanently deleted after download for your privacy.
             </div>
         `;
     }

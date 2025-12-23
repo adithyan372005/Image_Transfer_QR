@@ -4,15 +4,18 @@ A complete web application for secure file transfer using advanced cryptographic
 
 ## 🔐 Security Features
 
-- **Huffman Compression**: Efficient file compression before encryption
+- **Huffman Compression**: Efficient file compression before encryption with detailed statistics
 - **AES-256 Encryption**: Military-grade symmetric encryption for files
 - **ElGamal Cryptography**: Asymmetric encryption for secure key exchange
 - **QR Code Transfer**: URL-based QR codes compatible with Google Lens
 - **PIN Protection**: 6-character alphanumeric PIN for access control
 - **Time-Limited Access**: Configurable expiry times (2, 5, or 10 minutes)
-- **One-Time Access**: Files automatically deleted after successful decryption
+- **One-Time Download**: Files automatically deleted after successful download
 - **Tamper Detection**: SHA-256 hash verification
 - **Attempt Limiting**: Maximum 3 wrong PIN attempts before lockout
+- **Access Tracking**: Optional receiver name logging for audit trail
+- **Real-Time Status**: Senders can monitor file access status in real-time
+- **Enhanced Logging**: Comprehensive logs for security analysis
 
 ## 🚀 Quick Start
 
@@ -72,16 +75,20 @@ To test QR code scanning from mobile devices:
 2. Select an image (JPG, PNG, GIF) or PDF file (max 10MB)
 3. Choose expiry time (2, 5, or 10 minutes)
 4. Click **"Encrypt & Generate QR"**
-5. Share the QR code and PIN with the recipient
+5. **NEW**: View compression statistics (original size, compressed size, compression ratio)
+6. **NEW**: Monitor real-time access status
+7. Share the QR code and PIN with the recipient
 
 ### Receiving a File
 
 1. Scan the QR code with Google Lens or any QR scanner
 2. Browser will automatically open the receive page
 3. Enter the 6-character PIN provided by the sender
-4. Click **"Decrypt File"** to access the file
-5. For images: view directly in browser
-6. For PDFs: download to your device
+4. **NEW**: Optionally enter your name for logging purposes
+5. Click **"Decrypt File"** to access the file
+6. **NEW**: For images: view in browser AND download option
+7. **NEW**: For PDFs: download to your device
+8. **NEW**: One-time download access - file deleted after download
 
 ## 🏗️ Technical Architecture
 
@@ -105,6 +112,12 @@ To test QR code scanning from mobile devices:
 - `expiry_time`: When the transfer expires
 - `file_name`: Original filename
 - `huffman_tree`: Serialized Huffman tree for decompression
+- **NEW**: `original_size`: Original file size in bytes
+- **NEW**: `compressed_size`: Compressed file size in bytes
+- **NEW**: `compression_ratio`: Compression ratio percentage
+- **NEW**: `receiver_name`: Optional receiver name for logging
+- **NEW**: `access_time`: When the file was accessed/downloaded
+- **NEW**: `user_agent`: Receiver's browser information
 
 ### Security Flow
 
@@ -130,14 +143,47 @@ To test QR code scanning from mobile devices:
 8. File display/download
 9. Automatic data deletion
 
+## 🆕 New Features (Latest Update)
+
+### 1. **Compression Statistics Display**
+- Real-time compression ratio calculation
+- Original vs compressed file size comparison  
+- Detailed statistics shown after encryption
+- Enhanced logging with compression metrics
+
+### 2. **Receiver Name Logging**
+- Optional name field on receive page
+- Self-declared identification (not for authentication)
+- Enhanced audit trail for file access
+- Access information displayed to sender
+
+### 3. **Enhanced Download System**
+- Download buttons for both images and PDFs
+- One-time download access with immediate deletion
+- Improved file handling with proper MIME types
+- Download confirmation and status updates
+
+### 4. **Real-Time Access Status**
+- Live status monitoring for senders
+- Auto-refresh every 10 seconds
+- Status tracking: ACTIVE → ACCESSED → DOWNLOADED
+- Receiver information display when available
+
+### 5. **Enhanced Security Logging**
+- Detailed access logs with timestamps
+- User agent tracking for security analysis
+- Comprehensive transaction status updates
+- Improved error handling and reporting
+
 ## 🔒 Security Guarantees
 
 - **No Plain Text Storage**: AES keys and PINs are never stored in plain text
 - **Forward Secrecy**: Each transfer uses unique keys
 - **Data Integrity**: SHA-256 hashing prevents tampering
 - **Access Control**: PIN protection with attempt limiting
-- **Privacy**: Automatic deletion after access
+- **Privacy**: Automatic deletion after download
 - **Session-Based**: No user accounts or persistent data
+- **Audit Trail**: Optional logging for security analysis
 
 ## 📂 Project Structure
 

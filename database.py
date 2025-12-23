@@ -20,7 +20,7 @@ class DatabaseManager:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             
-            # Create transactions table
+            # Create transactions table (original schema)
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS transactions (
                     transaction_id TEXT PRIMARY KEY,
@@ -38,6 +38,14 @@ class DatabaseManager:
                 )
             ''')
             
+            # Extend schema with new columns if they don't exist
+            self._add_column_if_not_exists(cursor, 'transactions', 'original_size', 'INTEGER DEFAULT 0')
+            self._add_column_if_not_exists(cursor, 'transactions', 'compressed_size', 'INTEGER DEFAULT 0')
+            self._add_column_if_not_exists(cursor, 'transactions', 'compression_ratio', 'REAL DEFAULT 0.0')
+            self._add_column_if_not_exists(cursor, 'transactions', 'receiver_name', 'TEXT DEFAULT ""')
+            self._add_column_if_not_exists(cursor, 'transactions', 'accessed_at', 'TEXT DEFAULT ""')
+            self._add_column_if_not_exists(cursor, 'transactions', 'intended_receiver_name', 'TEXT DEFAULT ""')
+            
             # Create temporary files table for downloads
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS temp_files (
@@ -52,21 +60,73 @@ class DatabaseManager:
             conn.close()
             print("Database initialized successfully")
     
+    def _add_column_if_not_exists(self, cursor, table_name, column_name, column_definition):
+        """Add column to table if it doesn't already exist"""
+        try:
+            # Check if column exists by getting table info
+            cursor.execute(f"PRAGMA table_info({table_name})")
+            columns = [row[1] for row in cursor.fetchall()]
+            
+            if column_name not in columns:
+                # Column doesn't exist, add it
+                cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_definition}")
+                print(f"Added column {column_name} to {table_name} table")
+            else:
+                print(f"Column {column_name} already exists in {table_name} table")
+                
+        except Exception as e:
+            print(f"Error adding column {column_name} to {table_name}: {str(e)}")
+            # Don't raise exception to avoid breaking initialization
+    
     def store_transaction(self, transaction_id, encrypted_file, encrypted_aes_key, 
                          private_key, hash_value, hashed_pin, expiry_time, 
-                         file_name, huffman_tree):
+                         file_name, huffman_tree, original_size=None, compressed_size=None, 
+                         compression_ratio=None, intended_receiver_name=None):
         """Store transaction data in database"""
         with self.lock:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             
-            cursor.execute('''
-                INSERT INTO transactions 
-                (transaction_id, encrypted_file, encrypted_aes_key, private_key, 
-                 hash_value, hashed_pin, expiry_time, file_name, huffman_tree)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (transaction_id, encrypted_file, encrypted_aes_key, private_key,
-                  hash_value, hashed_pin, expiry_time.isoformat(), file_name, huffman_tree))
+            # Check if new columns exist before trying to use them
+            cursor.execute("PRAGMA table_info(transactions)")
+            columns = [row[1] for row in cursor.fetchall()]
+            
+            has_compression_columns = all(col in columns for col in ['original_size', 'compressed_size', 'compression_ratio'])
+            has_intended_receiver = 'intended_receiver_name' in columns
+            
+            if has_compression_columns and original_size is not None:
+                if has_intended_receiver:
+                    # Use fully extended schema with all new columns
+                    cursor.execute('''
+                        INSERT INTO transactions 
+                        (transaction_id, encrypted_file, encrypted_aes_key, private_key, 
+                         hash_value, hashed_pin, expiry_time, file_name, huffman_tree,
+                         original_size, compressed_size, compression_ratio, intended_receiver_name)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (transaction_id, encrypted_file, encrypted_aes_key, private_key,
+                          hash_value, hashed_pin, expiry_time.isoformat(), file_name, huffman_tree,
+                          original_size or 0, compressed_size or 0, compression_ratio or 0.0,
+                          intended_receiver_name or ''))
+                else:
+                    # Use compression columns only
+                    cursor.execute('''
+                        INSERT INTO transactions 
+                        (transaction_id, encrypted_file, encrypted_aes_key, private_key, 
+                         hash_value, hashed_pin, expiry_time, file_name, huffman_tree,
+                         original_size, compressed_size, compression_ratio)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (transaction_id, encrypted_file, encrypted_aes_key, private_key,
+                          hash_value, hashed_pin, expiry_time.isoformat(), file_name, huffman_tree,
+                          original_size or 0, compressed_size or 0, compression_ratio or 0.0))
+            else:
+                # Use original schema (backward compatibility)
+                cursor.execute('''
+                    INSERT INTO transactions 
+                    (transaction_id, encrypted_file, encrypted_aes_key, private_key, 
+                     hash_value, hashed_pin, expiry_time, file_name, huffman_tree)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (transaction_id, encrypted_file, encrypted_aes_key, private_key,
+                      hash_value, hashed_pin, expiry_time.isoformat(), file_name, huffman_tree))
             
             conn.commit()
             conn.close()
@@ -79,7 +139,7 @@ class DatabaseManager:
             cursor = conn.cursor()
             
             cursor.execute('''
-                SELECT * FROM transactions WHERE transaction_id = ? AND status = 'ACTIVE'
+                SELECT * FROM transactions WHERE transaction_id = ?
             ''', (transaction_id,))
             
             result = cursor.fetchone()
@@ -98,6 +158,37 @@ class DatabaseManager:
                 SET attempt_count = attempt_count + 1 
                 WHERE transaction_id = ?
             ''', (transaction_id,))
+            
+            conn.commit()
+            conn.close()
+    
+    def update_transaction_status(self, transaction_id, status, receiver_name=None, user_agent=None):
+        """Update transaction status and access information"""
+        with self.lock:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            from datetime import datetime
+            access_time = datetime.now().isoformat()
+            
+            # Check if new columns exist before trying to use them
+            cursor.execute("PRAGMA table_info(transactions)")
+            columns = [row[1] for row in cursor.fetchall()]
+            
+            if 'receiver_name' in columns and 'accessed_at' in columns:
+                # Use new schema
+                cursor.execute('''
+                    UPDATE transactions 
+                    SET status = ?, receiver_name = ?, accessed_at = ?
+                    WHERE transaction_id = ?
+                ''', (status, receiver_name or '', access_time, transaction_id))
+            else:
+                # Use original schema (backward compatibility)
+                cursor.execute('''
+                    UPDATE transactions 
+                    SET status = ?
+                    WHERE transaction_id = ?
+                ''', (status, transaction_id))
             
             conn.commit()
             conn.close()
