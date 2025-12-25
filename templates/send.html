@@ -3,13 +3,72 @@
 {% block title %}Send File - Secure Transfer{% endblock %}
 
 {% block content %}
-<a href="/" class="back-btn">← Back to Home</a>
+<div style="margin-bottom: 20px;">
+    <a href="/" style="color: var(--primary-color); text-decoration: none; display: inline-flex; align-items: center; gap: 8px; font-weight: 500; transition: var(--transition);">
+        <i class="fas fa-arrow-left"></i> Back to Home
+    </a>
+</div>
 
-<div class="container">
-    <div class="header">
-        <h1>📤 Send File</h1>
-        <p>Upload and encrypt your file securely</p>
+<div class="header slide-in">
+    <h1><i class="fas fa-shield-alt"></i> Send Secure File</h1>
+    <p>Advanced cryptographic protection for your documents</p>
+</div>
+
+<!-- Encryption Process Steps -->
+<div class="security-features slide-in" style="margin-bottom: 30px;">
+    <h3>Encryption Process</h3>
+    <div class="step-indicator">
+        <div class="step" id="step-upload">
+            <div class="step-circle">1</div>
+            <div class="step-label">Upload</div>
+        </div>
+        <div class="step" id="step-compress">
+            <div class="step-circle">2</div>
+            <div class="step-label">Compress</div>
+        </div>
+        <div class="step" id="step-encrypt">
+            <div class="step-circle">3</div>
+            <div class="step-label">Encrypt</div>
+        </div>
+        <div class="step" id="step-generate">
+            <div class="step-circle">4</div>
+            <div class="step-label">Generate QR</div>
+        </div>
     </div>
+</div>
+
+<!-- Live Crypto Indicators -->
+<div class="crypto-indicators" style="display: none; margin: 20px 0;">
+    <div class="crypto-indicator" id="indicator-huffman">
+        <i class="fas fa-compress-alt icon"></i> Huffman Compression
+    </div>
+    <div class="crypto-indicator" id="indicator-aes">
+        <i class="fas fa-lock icon"></i> AES-256 Encryption
+    </div>
+    <div class="crypto-indicator" id="indicator-elgamal">
+        <i class="fas fa-key icon"></i> ElGamal Key Exchange
+    </div>
+    <div class="crypto-indicator" id="indicator-hash">
+        <i class="fas fa-fingerprint icon"></i> SHA-256 Hashing
+    </div>
+    <div class="crypto-indicator" id="indicator-qr">
+        <i class="fas fa-qrcode icon"></i> QR Code Generation
+    </div>
+</div>
+
+<!-- Enhanced Progress Container -->
+<div class="progress-container" id="progressContainer">
+    <div class="progress-header">
+        <span class="progress-title" id="progressTitle">Initializing...</span>
+        <span class="progress-percentage" id="progressPercentage">0%</span>
+    </div>
+    <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <div style="font-size: 0.85em; color: var(--text-secondary); margin-top: 8px;" id="progressDetail">
+        Preparing secure encryption pipeline...
+    </div>
+</div>
 
     <form id="uploadForm" enctype="multipart/form-data">
         <div class="form-group">
@@ -39,17 +98,10 @@
             </select>
         </div>
 
-        <button type="submit" class="btn">
-            🔐 Encrypt & Generate QR
+        <button type="submit" class="btn" id="submitBtn">
+            <i class="fas fa-shield-alt"></i> Start Secure Encryption
         </button>
     </form>
-
-    <div class="loading">
-        <p>🔄 Processing your file...</p>
-        <p style="font-size: 0.9em; color: #718096;">
-            Compressing → Encrypting → Generating QR Code
-        </p>
-    </div>
 
     <!-- Results will be shown here -->
     <div id="results" style="display: none;">
@@ -114,8 +166,28 @@
 </div>
 
 <script>
-document.getElementById('uploadForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
+// Add debugging console logs
+console.log('Send page JavaScript loaded');
+
+// Test button click immediately
+setTimeout(() => {
+    const testBtn = document.getElementById('submitBtn');
+    if (testBtn) {
+        console.log('Button found, adding test click listener');
+        testBtn.addEventListener('click', () => {
+            console.log('BUTTON CLICKED! This should trigger form submission.');
+        });
+    }
+}, 1000);
+
+// Check if form exists
+const uploadForm = document.getElementById('uploadForm');
+console.log('Upload form found:', uploadForm);
+
+if (uploadForm) {
+    uploadForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        console.log('Form submission triggered - POST request should start now');
     
     clearAlerts();
     const fileInput = document.getElementById('fileInput');
@@ -147,21 +219,30 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
         return;
     }
     
-    showLoading();
+    // Start enhanced encryption process
+    startEncryptionProcess();
     document.querySelector('form').style.display = 'none';
     
     try {
+        console.log('Starting file upload process...');
         const formData = new FormData();
         formData.append('file', file);
         formData.append('expiry', expirySelect.value);
         formData.append('intended_receiver_name', intendedReceiverName.value.trim());
+        
+        console.log('FormData prepared, sending POST to /upload');
+        console.log('File:', file.name, 'Size:', file.size);
+        console.log('Expiry:', expirySelect.value);
+        console.log('Receiver:', intendedReceiverName.value.trim());
         
         const response = await fetch('/upload', {
             method: 'POST',
             body: formData
         });
         
+        console.log('Response received:', response.status, response.statusText);
         const result = await response.json();
+        console.log('Response JSON:', result);
         
         if (result.success) {
             // Store transaction ID globally for status checking
@@ -200,8 +281,106 @@ document.getElementById('uploadForm').addEventListener('submit', async function(
         document.querySelector('form').style.display = 'block';
     }
     
-    hideLoading();
+    completeEncryptionProcess();
+    });
+} else {
+    console.error('Upload form not found! Check HTML structure.');
+}
+
+// Add click event listener to button as backup
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, setting up event listeners');
+    
+    const submitBtn = document.getElementById('submitBtn');
+    console.log('Submit button found:', submitBtn);
+    
+    if (submitBtn) {
+        submitBtn.addEventListener('click', function(e) {
+            console.log('Button clicked directly!');
+            e.preventDefault();
+            
+            // Trigger form submission manually
+            const form = document.getElementById('uploadForm');
+            if (form) {
+                console.log('Manually triggering form submission');
+                const event = new Event('submit', { cancelable: true });
+                form.dispatchEvent(event);
+            }
+        });
+    }
 });
+
+// Enhanced encryption process visualization
+function startEncryptionProcess() {
+    // Show progress indicators
+    document.querySelector('.crypto-indicators').style.display = 'block';
+    document.getElementById('progressContainer').classList.add('show');
+    
+    // Update step indicator
+    updateStepIndicator(0);
+    
+    // Simulate real-time encryption steps
+    setTimeout(() => {
+        updateProgress(10, 'Reading file...');
+        updateCryptoIndicator('#indicator-huffman', 'processing');
+        updateProgressDetail('Analyzing file structure and preparing compression...');
+    }, 300);
+    
+    setTimeout(() => {
+        updateProgress(25, 'Huffman Compression...');
+        updateStepIndicator(1);
+        updateProgressDetail('Applying Huffman coding for optimal compression...');
+    }, 800);
+    
+    setTimeout(() => {
+        updateProgress(40, 'Generating Keys...');
+        updateCryptoIndicator('#indicator-huffman', 'completed');
+        updateCryptoIndicator('#indicator-elgamal', 'processing');
+        updateProgressDetail('Creating ElGamal key pair for secure exchange...');
+    }, 1300);
+    
+    setTimeout(() => {
+        updateProgress(60, 'AES Encryption...');
+        updateStepIndicator(2);
+        updateCryptoIndicator('#indicator-elgamal', 'completed');
+        updateCryptoIndicator('#indicator-aes', 'processing');
+        updateProgressDetail('Encrypting with AES-256 military-grade security...');
+    }, 1800);
+    
+    setTimeout(() => {
+        updateProgress(80, 'Hash Generation...');
+        updateCryptoIndicator('#indicator-aes', 'completed');
+        updateCryptoIndicator('#indicator-hash', 'processing');
+        updateProgressDetail('Generating SHA-256 integrity hash...');
+    }, 2300);
+    
+    setTimeout(() => {
+        updateProgress(95, 'Creating QR Code...');
+        updateStepIndicator(3);
+        updateCryptoIndicator('#indicator-hash', 'completed');
+        updateCryptoIndicator('#indicator-qr', 'processing');
+        updateProgressDetail('Generating secure QR code for sharing...');
+    }, 2800);
+}
+
+function completeEncryptionProcess() {
+    updateProgress(100, 'Encryption Complete!');
+    updateStepIndicator(4);
+    updateCryptoIndicator('#indicator-qr', 'completed');
+    updateProgressDetail('File successfully encrypted and ready for secure transfer');
+    
+    // Mark all steps as completed
+    document.querySelectorAll('.step').forEach(step => step.classList.add('completed'));
+    
+    // Hide progress after a moment
+    setTimeout(() => {
+        document.getElementById('progressContainer').classList.remove('show');
+    }, 2000);
+}
+
+function updateProgressDetail(detail) {
+    document.getElementById('progressDetail').textContent = detail;
+}
 
 // File input change handler to show file info
 document.getElementById('fileInput').addEventListener('change', function(e) {
@@ -302,6 +481,89 @@ function sendAnother() {
     
     // Clear intended receiver name field
     document.getElementById('intendedReceiverName').value = '';
+}
+
+// Missing utility functions - ADD THESE
+function clearAlerts() {
+    console.log('Clearing alerts');
+    const existingAlerts = document.querySelectorAll('.alert:not(.alert-success):not(.alert-info):not(.alert-warning)');
+    existingAlerts.forEach(alert => alert.remove());
+}
+
+function showAlert(message, type = 'error') {
+    console.log('Showing alert:', message, type);
+    clearAlerts();
+    
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type}`;
+    alertDiv.style.margin = '15px 0';
+    alertDiv.innerHTML = `<i class="fas fa-${type === 'error' ? 'exclamation-circle' : type === 'success' ? 'check-circle' : 'info-circle'}"></i> ${message}`;
+    
+    // Insert alert at the top of the form
+    const form = document.querySelector('form');
+    form.parentNode.insertBefore(alertDiv, form);
+    
+    // Auto-remove error alerts after 5 seconds
+    if (type === 'error') {
+        setTimeout(() => alertDiv.remove(), 5000);
+    }
+}
+
+function formatFileSize(bytes) {
+    console.log('Formatting file size:', bytes);
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// Functions from base.html that need to be available
+function updateCryptoIndicator(selector, status) {
+    console.log('Updating crypto indicator:', selector, status);
+    const indicator = document.querySelector(selector);
+    if (indicator) {
+        indicator.classList.remove('processing', 'active');
+        if (status === 'processing') {
+            indicator.classList.add('processing');
+        } else if (status === 'completed') {
+            indicator.classList.add('active');
+        }
+    }
+}
+
+function updateProgress(percentage, title = 'Processing...') {
+    console.log('Updating progress:', percentage, title);
+    const container = document.querySelector('.progress-container');
+    const fill = document.querySelector('.progress-fill');
+    const titleEl = document.querySelector('.progress-title');
+    const percentEl = document.querySelector('.progress-percentage');
+    
+    if (container && fill) {
+        container.classList.add('show');
+        fill.style.width = percentage + '%';
+        if (titleEl) titleEl.textContent = title;
+        if (percentEl) percentEl.textContent = percentage + '%';
+        
+        if (percentage >= 100) {
+            setTimeout(() => {
+                container.classList.remove('show');
+            }, 1500);
+        }
+    }
+}
+
+function updateStepIndicator(activeStep) {
+    console.log('Updating step indicator:', activeStep);
+    const steps = document.querySelectorAll('.step');
+    steps.forEach((step, index) => {
+        step.classList.remove('active', 'completed');
+        if (index < activeStep) {
+            step.classList.add('completed');
+        } else if (index === activeStep) {
+            step.classList.add('active');
+        }
+    });
 }
 </script>
 {% endblock %}

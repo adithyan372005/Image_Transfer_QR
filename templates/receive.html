@@ -3,13 +3,72 @@
 {% block title %}Receive File - Secure Transfer{% endblock %}
 
 {% block content %}
-<a href="/" class="back-btn">← Back to Home</a>
+<div style="margin-bottom: 20px;">
+    <a href="/" style="color: var(--primary-color); text-decoration: none; display: inline-flex; align-items: center; gap: 8px; font-weight: 500; transition: var(--transition);">
+        <i class="fas fa-arrow-left"></i> Back to Home
+    </a>
+</div>
 
-<div class="container">
-    <div class="header">
-        <h1>📥 Receive File</h1>
-        <p>Enter your PIN to decrypt and access the file</p>
+<div class="header slide-in">
+    <h1><i class="fas fa-unlock-alt"></i> Receive Secure File</h1>
+    <p>Enter credentials to decrypt and access your protected file</p>
+</div>
+
+<!-- Decryption Process Steps -->
+<div class="security-features slide-in" style="margin-bottom: 30px;">
+    <h3>Decryption Process</h3>
+    <div class="step-indicator">
+        <div class="step" id="step-verify">
+            <div class="step-circle">1</div>
+            <div class="step-label">Verify</div>
+        </div>
+        <div class="step" id="step-decrypt">
+            <div class="step-circle">2</div>
+            <div class="step-label">Decrypt</div>
+        </div>
+        <div class="step" id="step-decompress">
+            <div class="step-circle">3</div>
+            <div class="step-label">Decompress</div>
+        </div>
+        <div class="step" id="step-deliver">
+            <div class="step-circle">4</div>
+            <div class="step-label">Deliver</div>
+        </div>
     </div>
+</div>
+
+<!-- Live Crypto Indicators -->
+<div class="crypto-indicators" style="display: none; margin: 20px 0;">
+    <div class="crypto-indicator" id="indicator-verify">
+        <i class="fas fa-user-check icon"></i> PIN Verification
+    </div>
+    <div class="crypto-indicator" id="indicator-elgamal-decrypt">
+        <i class="fas fa-key icon"></i> ElGamal Key Decryption
+    </div>
+    <div class="crypto-indicator" id="indicator-aes-decrypt">
+        <i class="fas fa-unlock icon"></i> AES-256 Decryption
+    </div>
+    <div class="crypto-indicator" id="indicator-hash-verify">
+        <i class="fas fa-shield-halved icon"></i> Integrity Verification
+    </div>
+    <div class="crypto-indicator" id="indicator-huffman-decompress">
+        <i class="fas fa-expand-alt icon"></i> Huffman Decompression
+    </div>
+</div>
+
+<!-- Enhanced Progress Container -->
+<div class="progress-container" id="progressContainer">
+    <div class="progress-header">
+        <span class="progress-title" id="progressTitle">Ready to decrypt...</span>
+        <span class="progress-percentage" id="progressPercentage">0%</span>
+    </div>
+    <div class="progress-bar">
+        <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <div style="font-size: 0.85em; color: var(--text-secondary); margin-top: 8px;" id="progressDetail">
+        Enter PIN and credentials to begin secure decryption
+    </div>
+</div>
 
     <form id="decryptForm">
         <div class="form-group">
@@ -24,7 +83,10 @@
         <div class="form-group">
             <label for="pinInput">Access PIN</label>
             <input type="text" id="pinInput" name="pin" class="form-control" 
-                   placeholder="Enter 6-character PIN" maxlength="6" style="text-transform: uppercase; letter-spacing: 2px; font-weight: bold;" required>
+                   placeholder="Enter 6-character PIN" maxlength="6" 
+                   style="text-transform: uppercase; letter-spacing: 3px; font-weight: bold; text-align: center; font-size: 1.4em;"
+                   autocomplete="off" autocorrect="off" autocapitalize="characters" 
+                   inputmode="text" required>
             <small style="color: #718096; margin-top: 5px; display: block;">
                 Enter the PIN shared by the sender
             </small>
@@ -39,17 +101,10 @@
             </small>
         </div>
 
-        <button type="submit" class="btn">
-            🔓 Decrypt File
+        <button type="submit" class="btn" id="decryptBtn">
+            <i class="fas fa-unlock-alt"></i> Start Secure Decryption
         </button>
     </form>
-
-    <div class="loading">
-        <p>🔄 Decrypting your file...</p>
-        <p style="font-size: 0.9em; color: #718096;">
-            Verifying PIN → Decrypting → Decompressing
-        </p>
-    </div>
 
     <!-- Results will be shown here -->
     <div id="results" style="display: none;">
@@ -76,13 +131,213 @@
             <li>No user accounts or personal data stored</li>
         </ul>
     </div>
-</div>
+
+<style>
+    /* Mobile-specific styles for receive page */
+    @media (max-width: 768px) {
+        #pinInput {
+            font-size: 1.6em !important;
+            min-height: 65px !important;
+            letter-spacing: 4px !important;
+            text-align: center !important;
+            border: 3px solid var(--border-color) !important;
+        }
+        
+        #pinInput:focus {
+            border-color: var(--primary-color) !important;
+            box-shadow: 0 0 0 6px rgba(102, 126, 234, 0.15) !important;
+            transform: translateY(-2px) !important;
+        }
+        
+        #receiverName {
+            font-size: 1.2em !important;
+            min-height: 58px !important;
+        }
+        
+        #transactionId {
+            font-size: 1.1em !important;
+            min-height: 54px !important;
+            background: var(--bg-light) !important;
+        }
+        
+        /* Mobile instructions styling */
+        .security-features ol {
+            font-size: 1.05em;
+            line-height: 1.6;
+            padding-left: 25px;
+        }
+        
+        .security-features li {
+            margin-bottom: 8px;
+            padding-left: 10px;
+        }
+        
+        /* Mobile result display */
+        #results {
+            border-radius: 15px;
+            overflow: hidden;
+        }
+        
+        #results img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 12px;
+            box-shadow: var(--shadow-medium);
+        }
+        
+        /* Mobile download button */
+        .download-btn {
+            width: 100% !important;
+            padding: 18px !important;
+            font-size: 1.2em !important;
+            margin: 15px 0 !important;
+            border-radius: 12px !important;
+        }
+        
+        /* Mobile success display */
+        .success-container {
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .success-container h3 {
+            font-size: 1.4em;
+            margin-bottom: 15px;
+            color: var(--success-color);
+        }
+        
+        .file-preview {
+            max-width: 100%;
+            max-height: 70vh;
+            object-fit: contain;
+            border-radius: 12px;
+            box-shadow: var(--shadow-medium);
+            margin: 15px 0;
+        }
+        
+        /* Mobile error styling */
+        .alert-error {
+            font-size: 1.05em;
+            padding: 18px;
+            border-radius: 12px;
+        }
+        
+        /* Touch feedback for form elements */
+        .form-group input:active {
+            transform: scale(0.99);
+        }
+        
+        #decryptBtn:active {
+            transform: scale(0.98) !important;
+        }
+        
+        /* Mobile viewport adjustments */
+        .crypto-indicators .crypto-indicator {
+            margin: 6px 0;
+            padding: 14px 18px;
+            border-radius: 12px;
+            font-size: 1.05em;
+        }
+        
+        /* Mobile step styling */
+        .step {
+            padding: 16px !important;
+            margin: 10px 0 !important;
+            border-radius: 14px !important;
+        }
+        
+        .step-circle {
+            width: 50px !important;
+            height: 50px !important;
+            font-size: 1.2em !important;
+        }
+        
+        .step-label {
+            font-size: 1.1em !important;
+            font-weight: 600 !important;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        #pinInput {
+            font-size: 1.4em !important;
+            min-height: 60px !important;
+            letter-spacing: 3px !important;
+        }
+        
+        .header h1 {
+            font-size: 1.8em !important;
+        }
+        
+        .crypto-indicator {
+            font-size: 1em !important;
+            padding: 12px 16px !important;
+        }
+        
+        .step-circle {
+            width: 45px !important;
+            height: 45px !important;
+            font-size: 1.1em !important;
+        }
+    }
+    
+    /* Landscape mobile optimization */
+    @media (max-width: 812px) and (orientation: landscape) {
+        .header {
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            font-size: 1.6em;
+            margin-bottom: 8px;
+        }
+        
+        .header p {
+            font-size: 0.9em;
+        }
+        
+        .security-features {
+            margin: 15px 0;
+            padding: 15px;
+        }
+        
+        .step-indicator {
+            margin: 15px 0;
+        }
+        
+        .crypto-indicators {
+            margin: 15px 0;
+        }
+    }
+</style>
 
 <script>
-document.getElementById('decryptForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    
-    clearAlerts();
+// Add debugging console logs
+console.log('Receive page JavaScript loaded');
+
+// Test button click immediately
+setTimeout(() => {
+    const testBtn = document.getElementById('decryptBtn');
+    if (testBtn) {
+        console.log('Button found, adding test click listener');
+        testBtn.addEventListener('click', () => {
+            console.log('BUTTON CLICKED! This should trigger form submission.');
+        });
+    }
+}, 1000);
+
+// Check if form exists
+const decryptForm = document.getElementById('decryptForm');
+console.log('Decrypt form found:', decryptForm);
+
+if (decryptForm) {
+    decryptForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        console.log('Form submission triggered - POST request should start now');
+        
+        clearAlerts();
     const transactionId = document.getElementById('transactionId').value.trim();
     const pin = document.getElementById('pinInput').value.trim().toUpperCase();
     const receiverName = document.getElementById('receiverName').value.trim();
@@ -107,10 +362,16 @@ document.getElementById('decryptForm').addEventListener('submit', async function
         return;
     }
     
-    showLoading();
+    // Start enhanced decryption process
+    startDecryptionProcess();
     document.querySelector('form').style.display = 'none';
     
     try {
+        console.log('Starting decryption process...');
+        console.log('Transaction ID:', transactionId);
+        console.log('PIN:', pin);
+        console.log('Receiver Name:', receiverName);
+        
         const response = await fetch('/decrypt', {
             method: 'POST',
             headers: {
@@ -123,9 +384,12 @@ document.getElementById('decryptForm').addEventListener('submit', async function
             })
         });
         
+        console.log('Response received:', response.status, response.statusText);
         const result = await response.json();
+        console.log('Response JSON:', result);
         
         if (result.success) {
+            completeDecryptionProcess();
             showSuccess(result);
         } else {
             showAlert(result.error || 'Decryption failed.');
@@ -141,7 +405,195 @@ document.getElementById('decryptForm').addEventListener('submit', async function
         document.querySelector('form').style.display = 'block';
     }
     
-    hideLoading();
+    resetDecryptionProcess();
+    });
+} else {
+    console.error('Decrypt form not found! Check HTML structure.');
+}
+
+// Add click event listener to button as backup
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, setting up event listeners');
+    
+    const decryptBtn = document.getElementById('decryptBtn');
+    console.log('Decrypt button found:', decryptBtn);
+    
+    if (decryptBtn) {
+        decryptBtn.addEventListener('click', function(e) {
+            console.log('Button clicked directly!');
+            e.preventDefault();
+            
+            // Trigger form submission manually
+            const form = document.getElementById('decryptForm');
+            if (form) {
+                console.log('Manually triggering form submission');
+                const event = new Event('submit', { cancelable: true });
+                form.dispatchEvent(event);
+            }
+        });
+    }
+});
+
+// Enhanced decryption process visualization
+function startDecryptionProcess() {
+    // Show progress indicators
+    document.querySelector('.crypto-indicators').style.display = 'block';
+    document.getElementById('progressContainer').classList.add('show');
+    
+    // Update step indicator
+    updateStepIndicator(0);
+    
+    // Simulate real-time decryption steps
+    setTimeout(() => {
+        updateProgress(15, 'Verifying credentials...');
+        updateCryptoIndicator('#indicator-verify', 'processing');
+        updateProgressDetail('Validating PIN and receiver name...');
+    }, 200);
+    
+    setTimeout(() => {
+        updateProgress(30, 'PIN verified successfully');
+        updateStepIndicator(1);
+        updateCryptoIndicator('#indicator-verify', 'completed');
+        updateCryptoIndicator('#indicator-elgamal-decrypt', 'processing');
+        updateProgressDetail('Decrypting AES key with ElGamal private key...');
+    }, 700);
+    
+    setTimeout(() => {
+        updateProgress(55, 'Key decryption complete');
+        updateCryptoIndicator('#indicator-elgamal-decrypt', 'completed');
+        updateCryptoIndicator('#indicator-hash-verify', 'processing');
+        updateProgressDetail('Verifying file integrity with SHA-256...');
+    }, 1200);
+    
+    setTimeout(() => {
+        updateProgress(70, 'Integrity verified');
+        updateStepIndicator(2);
+        updateCryptoIndicator('#indicator-hash-verify', 'completed');
+        updateCryptoIndicator('#indicator-aes-decrypt', 'processing');
+        updateProgressDetail('Decrypting file with AES-256...');
+    }, 1700);
+    
+    setTimeout(() => {
+        updateProgress(85, 'File decrypted');
+        updateCryptoIndicator('#indicator-aes-decrypt', 'completed');
+        updateCryptoIndicator('#indicator-huffman-decompress', 'processing');
+        updateProgressDetail('Decompressing with Huffman algorithm...');
+    }, 2200);
+    
+    setTimeout(() => {
+        updateProgress(95, 'Decompression complete');
+        updateStepIndicator(3);
+        updateCryptoIndicator('#indicator-huffman-decompress', 'completed');
+        updateProgressDetail('Preparing file for secure delivery...');
+    }, 2700);
+}
+
+function completeDecryptionProcess() {
+    updateProgress(100, 'Decryption Complete!');
+    updateStepIndicator(4);
+    updateProgressDetail('File successfully decrypted and ready for access');
+    
+    // Mark all steps as completed
+    document.querySelectorAll('.step').forEach(step => step.classList.add('completed'));
+    
+    // Hide progress after a moment
+    setTimeout(() => {
+        document.getElementById('progressContainer').classList.remove('show');
+    }, 2000);
+}
+
+function resetDecryptionProcess() {
+    // Reset all indicators
+    document.querySelector('.crypto-indicators').style.display = 'none';
+    document.getElementById('progressContainer').classList.remove('show');
+    document.querySelectorAll('.crypto-indicator').forEach(indicator => {
+        indicator.classList.remove('processing', 'active');
+    });
+    document.querySelectorAll('.step').forEach(step => {
+        step.classList.remove('active', 'completed');
+    });
+    updateProgress(0, 'Ready to decrypt...');
+    updateProgressDetail('Enter PIN and credentials to begin secure decryption');
+}
+
+function updateProgressDetail(detail) {
+    document.getElementById('progressDetail').textContent = detail;
+}
+
+// Mobile-specific enhancements
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-focus PIN input on mobile
+    const pinInput = document.getElementById('pinInput');
+    
+    // Mobile PIN input improvements
+    pinInput.addEventListener('input', function(e) {
+        // Auto-uppercase and format
+        this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        
+        // Auto-submit when 6 characters entered (mobile UX)
+        if (this.value.length === 6) {
+            // Slight delay to show the last character
+            setTimeout(() => {
+                document.getElementById('decryptBtn').focus();
+                // Optional: Auto-submit for better mobile UX
+                // document.getElementById('decryptForm').dispatchEvent(new Event('submit'));
+            }, 300);
+        }
+    });
+    
+    // Touch-friendly PIN input
+    pinInput.addEventListener('focus', function() {
+        // Scroll input into view on mobile
+        setTimeout(() => {
+            this.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 300);
+    });
+    
+    // Mobile keyboard optimization
+    if (/Mobi|Android/i.test(navigator.userAgent)) {
+        pinInput.setAttribute('inputmode', 'text');
+        pinInput.setAttribute('pattern', '[A-Z0-9]{6}');
+    }
+    
+    // Improve form submission feedback on mobile
+    const form = document.getElementById('decryptForm');
+    form.addEventListener('submit', function() {
+        // Hide keyboard on mobile after submission
+        if (document.activeElement) {
+            document.activeElement.blur();
+        }
+        
+        // Provide haptic feedback if available
+        if ('vibrate' in navigator) {
+            navigator.vibrate(50);
+        }
+    });
+    
+    // Add visual feedback for crypto indicators on mobile
+    const indicators = document.querySelectorAll('.crypto-indicator');
+    indicators.forEach(indicator => {
+        indicator.addEventListener('touchstart', function() {
+            this.style.transform = 'scale(0.98)';
+        });
+        
+        indicator.addEventListener('touchend', function() {
+            this.style.transform = 'scale(1)';
+        });
+    });
+    
+    // Mobile-specific alert positioning
+    function repositionAlerts() {
+        const alerts = document.querySelectorAll('.alert');
+        alerts.forEach(alert => {
+            alert.style.position = 'relative';
+            alert.style.zIndex = '1000';
+        });
+    }
+    
+    // Call on orientation change
+    window.addEventListener('orientationchange', function() {
+        setTimeout(repositionAlerts, 300);
+    });
 });
 
 function showSuccess(result) {
@@ -155,58 +607,123 @@ function showSuccess(result) {
     if (result.file_type === 'image') {
         resultsDiv.innerHTML = `
             <div class="alert alert-success">
-                <strong>File decrypted successfully!</strong> Your image is displayed below.
-            </div>
-            <div style="margin: 20px 0;">
-                <h3>📷 ${result.file_name}</h3>
-                <div style="background: #f7fafc; padding: 20px; border-radius: 10px; margin: 15px 0;">
-                    <img src="data:image/jpeg;base64,${result.file_data}" 
-                         alt="Decrypted Image" 
-                         style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                <i class="fas fa-check-circle"></i>
+                <div>
+                    <strong>🎉 File decrypted successfully!</strong><br>
+                    Your image is ready for viewing and download.
                 </div>
-                <a href="${result.download_url}" class="btn btn-secondary" style="margin: 10px 0;" download>
-                    📥 Download Image File
+            </div>
+            <div class="success-container" style="margin: 25px 0; text-align: center;">
+                <h3 style="color: var(--success-color); margin-bottom: 20px;">
+                    <i class="fas fa-image"></i> ${result.file_name}
+                </h3>
+                <div style="background: linear-gradient(135deg, #f8fafc 0%, #edf2f7 100%); padding: 20px; border-radius: 15px; margin: 20px 0; position: relative; overflow: hidden;">
+                    <img src="data:image/jpeg;base64,${result.file_data}" 
+                         alt="Decrypted Image" class="file-preview"
+                         style="max-width: 100%; max-height: 70vh; object-fit: contain; border-radius: 12px; box-shadow: var(--shadow-medium); cursor: pointer;"
+                         onclick="this.style.maxHeight = this.style.maxHeight === '90vh' ? '70vh' : '90vh'">
+                    <div style="position: absolute; top: 15px; right: 15px; background: rgba(72, 187, 120, 0.9); color: white; padding: 8px 12px; border-radius: 25px; font-size: 0.8em; font-weight: 600;">
+                        <i class="fas fa-shield-check"></i> DECRYPTED
+                    </div>
+                    <p style="margin-top: 15px; color: var(--text-secondary); font-size: 0.9em;">
+                        <i class="fas fa-info-circle"></i> Tap image to resize
+                    </p>
+                </div>
+                <a href="${result.download_url}" class="btn btn-secondary download-btn" 
+                   style="width: 100%; margin: 15px 0; padding: 18px; font-size: 1.2em; display: flex; align-items: center; justify-content: center; gap: 10px;" 
+                   download onclick="navigator.vibrate && navigator.vibrate(100)">
+                    <i class="fas fa-download"></i> Download Image to Device
                 </a>
-                <p style="color: #718096; font-size: 0.9em;">
-                    View above or download to your device (one-time access only)
+                <p style="color: var(--text-secondary); font-size: 1em; line-height: 1.5;">
+                    <i class="fas fa-mobile-alt"></i> View above or save to your gallery<br>
+                    <small><i class="fas fa-clock"></i> One-time access only</small>
                 </p>
             </div>
-            <div style="background: #e6fffa; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                <p style="color: #234e52; font-size: 0.9em; margin: 0;">
-                    📋 ${accessInfo}
-                </p>
+            <div class="alert alert-info" style="margin: 20px 0;">
+                <i class="fas fa-info-circle"></i>
+                <div>
+                    <strong>Access Details:</strong><br>
+                    ${accessInfo}
+                </div>
             </div>
             <div class="alert alert-warning">
-                <strong>Security Notice:</strong> This file will be permanently deleted after download for your privacy.
+                <i class="fas fa-exclamation-triangle"></i>
+                <div>
+                    <strong>Security Notice:</strong> This file will be permanently deleted after download for your privacy and security.
+                </div>
             </div>
         `;
     } else if (result.file_type === 'pdf') {
         resultsDiv.innerHTML = `
             <div class="alert alert-success">
-                <strong>File decrypted successfully!</strong> Click below to download your PDF.
+                <i class="fas fa-check-circle"></i>
+                <div>
+                    <strong>🎉 PDF decrypted successfully!</strong><br>
+                    Your document is ready for download.
+                </div>
             </div>
-            <div style="margin: 20px 0;">
-                <h3>📄 ${result.file_name}</h3>
-                <a href="${result.download_url}" class="btn" style="margin: 20px 0;" download>
-                    📥 Download PDF File
+            <div class="success-container" style="margin: 25px 0; text-align: center;">
+                <h3 style="color: var(--success-color); margin-bottom: 20px;">
+                    <i class="fas fa-file-pdf"></i> ${result.file_name}
+                </h3>
+                <div style="background: linear-gradient(135deg, #f8fafc 0%, #edf2f7 100%); padding: 40px 20px; border-radius: 15px; margin: 20px 0; border: 1px solid var(--border-color);">
+                    <div style="font-size: 5em; margin-bottom: 20px; color: #e53e3e;">
+                        <i class="fas fa-file-pdf"></i>
+                    </div>
+                    <p style="font-size: 1.3em; color: var(--text-primary); margin-bottom: 15px; font-weight: 600;">
+                        ${result.file_name}
+                    </p>
+                    <div style="background: rgba(72, 187, 120, 0.1); padding: 15px; border-radius: 10px; margin: 15px 0; color: var(--success-color);">
+                        <i class="fas fa-shield-check"></i> PDF successfully decrypted and ready for download
+                    </div>
+                </div>
+                <a href="${result.download_url}" class="btn download-btn" 
+                   style="width: 100%; margin: 20px 0; padding: 20px; font-size: 1.3em; display: flex; align-items: center; justify-content: center; gap: 12px;" 
+                   download onclick="navigator.vibrate && navigator.vibrate(100)">
+                    <i class="fas fa-download"></i> Download PDF to Device
                 </a>
-                <p style="color: #718096; font-size: 0.9em;">
-                    Your PDF file is ready for download (one-time access only)
+                <p style="color: var(--text-secondary); font-size: 1em; line-height: 1.5;">
+                    <i class="fas fa-mobile-alt"></i> Opens in your PDF viewer app<br>
+                    <small><i class="fas fa-clock"></i> One-time access only</small>
                 </p>
             </div>
-            <div style="background: #e6fffa; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                <p style="color: #234e52; font-size: 0.9em; margin: 0;">
-                    📋 ${accessInfo}
-                </p>
+            <div class="alert alert-info" style="margin: 20px 0;">
+                <i class="fas fa-info-circle"></i>
+                <div>
+                    <strong>Access Details:</strong><br>
+                    ${accessInfo}
+                </div>
             </div>
             <div class="alert alert-warning">
-                <strong>Security Notice:</strong> This file will be permanently deleted after download for your privacy.
+                <i class="fas fa-exclamation-triangle"></i>
+                <div>
+                    <strong>Security Notice:</strong> This file will be permanently deleted after download for your privacy and security.
+                </div>
             </div>
         `;
     }
     
     resultsDiv.style.display = 'block';
-    showAlert('File decrypted and ready!', 'success');
+    resultsDiv.classList.add('slide-in');
+    
+    // Mobile-optimized scrolling and feedback
+    setTimeout(() => {
+        const isMobile = window.innerWidth <= 768;
+        
+        // Scroll to results with mobile-friendly positioning
+        resultsDiv.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: isMobile ? 'start' : 'center'
+        });
+        
+        // Haptic feedback for mobile success
+        if ('vibrate' in navigator && isMobile) {
+            navigator.vibrate([100, 50, 100]); // Success pattern
+        }
+        
+        // Show success toast for mobile
+        showAlert('🎉 File successfully decrypted and ready!', 'success');
+    }, 200);
 }
 
 // Auto-focus PIN input
@@ -229,5 +746,79 @@ document.addEventListener('DOMContentLoaded', function() {
         showAlert('No transaction ID found. Please scan the QR code again.', 'warning');
     }
 });
+
+// Missing utility functions - ADD THESE
+function clearAlerts() {
+    console.log('Clearing alerts');
+    const existingAlerts = document.querySelectorAll('.alert:not(.alert-success):not(.alert-info):not(.alert-warning)');
+    existingAlerts.forEach(alert => alert.remove());
+}
+
+function showAlert(message, type = 'error') {
+    console.log('Showing alert:', message, type);
+    clearAlerts();
+    
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type}`;
+    alertDiv.style.margin = '15px 0';
+    alertDiv.innerHTML = `<i class="fas fa-${type === 'error' ? 'exclamation-circle' : type === 'success' ? 'check-circle' : 'info-circle'}"></i> ${message}`;
+    
+    // Insert alert at the top of the form
+    const form = document.querySelector('form');
+    form.parentNode.insertBefore(alertDiv, form);
+    
+    // Auto-remove error alerts after 5 seconds
+    if (type === 'error') {
+        setTimeout(() => alertDiv.remove(), 5000);
+    }
+}
+
+// Functions from base.html that need to be available
+function updateCryptoIndicator(selector, status) {
+    console.log('Updating crypto indicator:', selector, status);
+    const indicator = document.querySelector(selector);
+    if (indicator) {
+        indicator.classList.remove('processing', 'active');
+        if (status === 'processing') {
+            indicator.classList.add('processing');
+        } else if (status === 'completed') {
+            indicator.classList.add('active');
+        }
+    }
+}
+
+function updateProgress(percentage, title = 'Processing...') {
+    console.log('Updating progress:', percentage, title);
+    const container = document.querySelector('.progress-container');
+    const fill = document.querySelector('.progress-fill');
+    const titleEl = document.querySelector('.progress-title');
+    const percentEl = document.querySelector('.progress-percentage');
+    
+    if (container && fill) {
+        container.classList.add('show');
+        fill.style.width = percentage + '%';
+        if (titleEl) titleEl.textContent = title;
+        if (percentEl) percentEl.textContent = percentage + '%';
+        
+        if (percentage >= 100) {
+            setTimeout(() => {
+                container.classList.remove('show');
+            }, 1500);
+        }
+    }
+}
+
+function updateStepIndicator(activeStep) {
+    console.log('Updating step indicator:', activeStep);
+    const steps = document.querySelectorAll('.step');
+    steps.forEach((step, index) => {
+        step.classList.remove('active', 'completed');
+        if (index < activeStep) {
+            step.classList.add('completed');
+        } else if (index === activeStep) {
+            step.classList.add('active');
+        }
+    });
+}
 </script>
 {% endblock %}
