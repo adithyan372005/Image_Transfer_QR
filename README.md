@@ -1,38 +1,55 @@
-# CNS Project: Secure Image & PDF Transfer
+# CNS Project: Secure File Transfer System
 
-A complete web application for secure file transfer using advanced cryptographic techniques including Huffman Compression, AES encryption, ElGamal cryptography, QR codes, and PIN-based access control.
+A comprehensive web application demonstrating advanced cryptographic techniques for secure file transfer. Features dual-mode operation with traditional PIN-based transfers and modern session-based end-to-end encryption.
+
+## 🏗️ Architecture Overview
+
+This system implements two distinct transfer modes:
+
+### 1. **Legacy Mode: PIN-Based Transfers**
+- Server-side encryption with PIN protection
+- QR code contains direct access URL
+- Suitable for quick, simple transfers
+
+### 2. **Session Mode: End-to-End Encryption**
+- Client-side key generation (private keys never leave client)
+- Server acts as encrypted relay only
+- True end-to-end encryption with forward secrecy
 
 ## 🔐 Security Features
 
-- **Huffman Compression**: Efficient file compression before encryption with detailed statistics
-- **AES-256 Encryption**: Military-grade symmetric encryption for files
-- **ElGamal Cryptography**: Asymmetric encryption for secure key exchange
-- **QR Code Transfer**: URL-based QR codes compatible with Google Lens
-- **PIN Protection**: 6-character alphanumeric PIN for access control
-- **Time-Limited Access**: Configurable expiry times (2, 5, or 10 minutes)
-- **One-Time Download**: Files automatically deleted after successful download
-- **Tamper Detection**: SHA-256 hash verification
-- **Attempt Limiting**: Maximum 3 wrong PIN attempts before lockout
-- **Access Tracking**: Optional receiver name logging for audit trail
-- **Real-Time Status**: Senders can monitor file access status in real-time
-- **Enhanced Logging**: Comprehensive logs for security analysis
+### Core Cryptography
+- **Huffman Compression**: Efficient file compression with detailed statistics
+- **AES-256 Encryption**: Military-grade symmetric encryption
+- **ElGamal Cryptography**: Asymmetric encryption for key exchange
+- **SHA-256 Hashing**: Data integrity verification
+
+### Access Control
+- **PIN Protection**: 6-character alphanumeric PINs (legacy mode)
+- **Session-based Security**: No persistent authentication required
+- **Attempt Limiting**: Maximum 3 failed attempts before lockout
+- **Time-Limited Access**: Configurable expiry times
+- **One-Time Download**: Automatic data deletion after access
+
+### Privacy & Security
+- **Forward Secrecy**: Unique keys for each transfer
+- **No Plain Text Storage**: All sensitive data encrypted at rest
+- **Tamper Detection**: Hash verification prevents data modification
+- **Optional Receiver Verification**: Name-based recipient validation
+- **Comprehensive Logging**: Security audit trail
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-
 - Python 3.8 or higher
 - pip (Python package installer)
 
 ### Installation
 
-1. **Clone or download the project files**
+1. **Download or clone the project**
    ```bash
-   # If you have git
    git clone <repository-url>
    cd secure-file-transfer
-   
-   # Or extract the downloaded ZIP file
    ```
 
 2. **Install dependencies**
@@ -46,161 +63,219 @@ A complete web application for secure file transfer using advanced cryptographic
    ```
 
 4. **Access the application**
-   - Open your browser and go to: `http://localhost:5000`
-   - The application will automatically create the SQLite database on first run
+   - Open browser to: `http://localhost:5000`
+   - Database auto-creates on first run
 
-### For Mobile Testing (Optional)
+### Mobile Testing (Optional)
 
-To test QR code scanning from mobile devices:
+For QR code scanning from mobile devices:
 
-1. **Install ngrok** (for external access)
+1. **Install ngrok** for external access
    ```bash
    # Download from https://ngrok.com/download
-   # Or use package manager
-   ```
-
-2. **Expose local server**
-   ```bash
-   # In a new terminal window
    ngrok http 5000
    ```
 
-3. **Use the ngrok URL** (e.g., `https://xxxx.ngrok-free.app`) to access from mobile
+2. **Use the ngrok URL** for mobile access
 
 ## 📱 How to Use
 
-### Sending a File
+### Mode 1: Legacy PIN-Based Transfer
 
-1. Click **"Send File"** on the home page
-2. Select an image (JPG, PNG, GIF) or PDF file (max 10MB)
-3. Choose expiry time (2, 5, or 10 minutes)
-4. Click **"Encrypt & Generate QR"**
-5. **NEW**: View compression statistics (original size, compressed size, compression ratio)
-6. **NEW**: Monitor real-time access status
-7. Share the QR code and PIN with the recipient
+#### Sending a File
+1. Click **"Send File"** on home page
+2. Select image (JPG, PNG, GIF) or PDF file (max 10MB)
+3. Optionally set intended receiver name
+4. Choose expiry time (2, 5, or 10 minutes)
+5. Click **"Encrypt & Generate QR"**
+6. View compression statistics and real-time status
+7. Share QR code and PIN with recipient
 
-### Receiving a File
+#### Receiving a File
+1. Scan QR code with any QR scanner
+2. Browser opens receive page automatically
+3. Enter the 6-character PIN
+4. Optionally enter your name for logging
+5. Click **"Decrypt File"** to access
+6. Download file (one-time access only)
 
-1. Scan the QR code with Google Lens or any QR scanner
-2. Browser will automatically open the receive page
-3. Enter the 6-character PIN provided by the sender
-4. **NEW**: Optionally enter your name for logging purposes
-5. Click **"Decrypt File"** to access the file
-6. **NEW**: For images: view in browser AND download option
-7. **NEW**: For PDFs: download to your device
-8. **NEW**: One-time download access - file deleted after download
+### Mode 2: Session-Based E2E Encryption
 
-## 🏗️ Technical Architecture
+#### Creating a Session
+1. Click **"Session Send"** on home page
+2. Enter sender name and expiry time
+3. Click **"Create Session"**
+4. Share QR code with recipient
+5. Wait for receiver to join and generate keys
 
-### Backend (Python/Flask)
+#### Joining a Session
+1. Scan QR code to join session
+2. System generates key pair locally
+3. Private key never leaves your device
+4. Notify sender when ready
 
-- `app.py`: Main Flask application with API endpoints
-- `crypto_utils.py`: Cryptographic implementations
-- `database.py`: SQLite database management
-- `templates/`: HTML templates for the web interface
+#### Transferring Files
+1. **Sender**: Upload file after receiver joins
+2. File encrypted with receiver's public key
+3. **Receiver**: Decrypt using local private key
+4. Download decrypted file
+
+## 🔧 Technical Architecture
+
+### Backend Components
+- **app.py**: Flask application with dual-mode routing
+- **crypto_utils.py**: Cryptographic implementations
+  - `HuffmanCompression`: File compression/decompression
+  - `AESCrypto`: Symmetric encryption
+  - `ElGamalCrypto`: Asymmetric encryption
+- **database.py**: SQLite database management
+
+### Frontend Templates
+- **base.html**: Common layout and styling
+- **home.html**: Mode selection homepage
+- **send.html**: Legacy mode file sender
+- **receive.html**: Legacy mode file receiver
+- **session_sender.html**: E2E mode sender interface
+- **session_receiver.html**: E2E mode receiver interface
 
 ### Database Schema
 
-**Transactions Table:**
-- `transaction_id`: Unique UUID for each transfer
-- `encrypted_file`: AES-encrypted and compressed file data
-- `encrypted_aes_key`: ElGamal-encrypted AES key
-- `private_key`: ElGamal private key for decryption
-- `hash_value`: SHA-256 hash for integrity verification
-- `hashed_pin`: SHA-256 hash of the access PIN
-- `attempt_count`: Number of failed PIN attempts
-- `expiry_time`: When the transfer expires
-- `file_name`: Original filename
-- `huffman_tree`: Serialized Huffman tree for decompression
-- **NEW**: `original_size`: Original file size in bytes
-- **NEW**: `compressed_size`: Compressed file size in bytes
-- **NEW**: `compression_ratio`: Compression ratio percentage
-- **NEW**: `receiver_name`: Optional receiver name for logging
-- **NEW**: `access_time`: When the file was accessed/downloaded
-- **NEW**: `user_agent`: Receiver's browser information
+#### Transactions Table (Legacy Mode)
+```sql
+CREATE TABLE transactions (
+    transaction_id TEXT PRIMARY KEY,
+    encrypted_file TEXT NOT NULL,
+    encrypted_aes_key TEXT NOT NULL,
+    private_key TEXT NOT NULL,
+    hash_value TEXT NOT NULL,
+    hashed_pin TEXT NOT NULL,
+    attempt_count INTEGER DEFAULT 0,
+    expiry_time TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    huffman_tree TEXT NOT NULL,
+    original_size INTEGER DEFAULT 0,
+    compressed_size INTEGER DEFAULT 0,
+    compression_ratio REAL DEFAULT 0.0,
+    status TEXT DEFAULT 'ACTIVE',
+    intended_receiver_name TEXT,
+    receiver_name TEXT,
+    access_time TEXT,
+    user_agent TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+)
+```
+
+#### Sessions Table (E2E Mode)
+```sql
+CREATE TABLE sessions (
+    session_id TEXT PRIMARY KEY,
+    sender_id TEXT NOT NULL,
+    server_url TEXT NOT NULL,
+    public_key_p TEXT,
+    public_key_g TEXT,
+    public_key_y TEXT,
+    encrypted_file TEXT,
+    encrypted_aes_key TEXT,
+    hash_value TEXT,
+    file_name TEXT,
+    huffman_tree TEXT,
+    original_size INTEGER DEFAULT 0,
+    compressed_size INTEGER DEFAULT 0,
+    compression_ratio REAL DEFAULT 0.0,
+    status TEXT DEFAULT 'WAITING_FOR_RECEIVER',
+    attempt_count INTEGER DEFAULT 0,
+    expiry_time TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    receiver_joined_at TEXT,
+    key_generated_at TEXT,
+    file_uploaded_at TEXT,
+    accessed_at TEXT
+)
+```
 
 ### Security Flow
 
-#### Sender Side:
-1. File upload and validation
-2. ElGamal key pair generation
-3. Huffman compression
-4. AES encryption with random key
-5. ElGamal encryption of AES key
-6. SHA-256 hash generation
-7. PIN generation and hashing
-8. Database storage
-9. QR code generation with URL
+#### Legacy Mode Flow
+1. **File Upload**: User selects file and expiry
+2. **Compression**: Huffman encoding reduces file size
+3. **Key Generation**: Server generates ElGamal key pair
+4. **AES Encryption**: File encrypted with random AES key
+5. **Key Encryption**: AES key encrypted with ElGamal public key
+6. **Hash Generation**: SHA-256 hash for integrity
+7. **PIN Creation**: Random alphanumeric PIN generated
+8. **Storage**: All data stored encrypted in database
+9. **QR Generation**: URL with transaction ID encoded
+10. **Access**: Receiver scans QR, enters PIN, downloads file
 
-#### Receiver Side:
-1. QR code scan opens URL with transaction ID
-2. PIN validation (max 3 attempts)
-3. Transaction expiry check
-4. ElGamal decryption of AES key
-5. Hash verification for tamper detection
-6. AES decryption of file
-7. Huffman decompression
-8. File display/download
-9. Automatic data deletion
+#### Session Mode Flow (End-to-End)
+1. **Session Creation**: Sender creates session with QR code
+2. **Receiver Join**: Receiver scans QR and joins session
+3. **Key Generation**: Receiver generates ElGamal keys locally
+4. **Public Key Share**: Only public key sent to server
+5. **File Upload**: Sender uploads file after receiver ready
+6. **Client Encryption**: File encrypted with receiver's public key
+7. **Server Relay**: Server stores encrypted data only
+8. **Client Decryption**: Receiver decrypts using local private key
+9. **Download**: File available for one-time download
 
-## 🆕 New Features (Latest Update)
+## 🛡️ Security Guarantees
 
-### 1. **Compression Statistics Display**
-- Real-time compression ratio calculation
-- Original vs compressed file size comparison  
-- Detailed statistics shown after encryption
-- Enhanced logging with compression metrics
-
-### 2. **Receiver Name Logging**
-- Optional name field on receive page
-- Self-declared identification (not for authentication)
-- Enhanced audit trail for file access
-- Access information displayed to sender
-
-### 3. **Enhanced Download System**
-- Download buttons for both images and PDFs
-- One-time download access with immediate deletion
-- Improved file handling with proper MIME types
-- Download confirmation and status updates
-
-### 4. **Real-Time Access Status**
-- Live status monitoring for senders
-- Auto-refresh every 10 seconds
-- Status tracking: ACTIVE → ACCESSED → DOWNLOADED
-- Receiver information display when available
-
-### 5. **Enhanced Security Logging**
-- Detailed access logs with timestamps
-- User agent tracking for security analysis
-- Comprehensive transaction status updates
-- Improved error handling and reporting
-
-## 🔒 Security Guarantees
-
-- **No Plain Text Storage**: AES keys and PINs are never stored in plain text
-- **Forward Secrecy**: Each transfer uses unique keys
+### Data Protection
+- **End-to-End Encryption**: Session mode ensures server cannot decrypt files
+- **Forward Secrecy**: Each transfer uses unique cryptographic keys
 - **Data Integrity**: SHA-256 hashing prevents tampering
-- **Access Control**: PIN protection with attempt limiting
-- **Privacy**: Automatic deletion after download
-- **Session-Based**: No user accounts or persistent data
-- **Audit Trail**: Optional logging for security analysis
+- **Secure Deletion**: Automatic cleanup after download
+- **No Persistent Storage**: No user accounts or long-term data retention
+
+### Access Control
+- **Multi-Factor**: PIN + optional name verification
+- **Rate Limiting**: Maximum 3 attempts before lockout
+- **Time Bounds**: Configurable expiry prevents stale access
+- **One-Time Use**: Files deleted immediately after download
+- **Audit Trail**: Comprehensive logging for security analysis
+
+### Privacy
+- **Anonymous Usage**: No user registration required
+- **Minimal Metadata**: Only essential transfer information stored
+- **Local Key Storage**: Private keys never transmitted (session mode)
+- **Automatic Cleanup**: All data purged after successful transfer
 
 ## 📂 Project Structure
 
 ```
 secure-file-transfer/
-├── app.py                 # Main Flask application
-├── crypto_utils.py        # Cryptographic utilities
-├── database.py           # Database management
-├── requirements.txt      # Python dependencies
-├── README.md            # This file
-├── templates/           # HTML templates
-│   ├── base.html       # Base template
-│   ├── home.html       # Home page
-│   ├── send.html       # Send file page
-│   └── receive.html    # Receive file page
-└── secure_transfer.db   # SQLite database (auto-created)
+├── app.py                     # Main Flask application
+├── crypto_utils.py            # Cryptographic utilities
+├── database.py               # Database management
+├── requirements.txt          # Python dependencies
+├── README.md                # This documentation
+├── templates/               # HTML templates
+│   ├── base.html           # Base template with common layout
+│   ├── home.html           # Mode selection homepage
+│   ├── send.html           # Legacy mode send interface
+│   ├── receive.html        # Legacy mode receive interface
+│   ├── session_sender.html # E2E mode sender interface
+│   └── session_receiver.html # E2E mode receiver interface
+└── secure_transfer.db       # SQLite database (auto-created)
 ```
+
+## 🔧 API Endpoints
+
+### Legacy Mode Endpoints
+- `POST /upload` - Upload and encrypt file with PIN
+- `POST /decrypt` - Decrypt file with PIN
+- `GET /download/<transaction_id>` - Download decrypted file
+- `GET /status/<transaction_id>` - Check transfer status
+
+### Session Mode Endpoints
+- `POST /create_session` - Create new E2E session
+- `GET /join_session` - Join existing session
+- `POST /generate_keypair` - Generate receiver key pair
+- `GET /get_public_key/<session_id>` - Retrieve public key
+- `POST /session_upload` - Upload file to session
+- `POST /session_decrypt` - Decrypt session file
+- `GET /session_download/<session_id>` - Download session file
+- `GET /session_status/<session_id>` - Check session status
 
 ## 🛠️ Development Notes
 
@@ -211,111 +286,150 @@ secure-file-transfer/
 
 ### Browser Compatibility
 - Chrome/Chromium (recommended)
-- Firefox
-- Safari
-- Edge
+- Firefox, Safari, Edge
 - Mobile browsers (iOS Safari, Chrome Mobile)
 
 ### Performance Considerations
-- Compression ratio depends on file type
-- Large files may take longer to process
-- Mobile devices may have slower encryption/decryption
+- Compression efficiency varies by file type
+- Large files require more processing time
+- Mobile devices may have slower crypto operations
 
-## 🔧 Configuration
-
-### Environment Variables (Optional)
+### Environment Configuration
 ```bash
-export FLASK_ENV=development    # For development mode
-export FLASK_DEBUG=1           # Enable debug mode
-```
+# Development mode
+export FLASK_ENV=development
+export FLASK_DEBUG=1
 
-### Database Location
-- Default: `secure_transfer.db` in project directory
-- Can be changed in `database.py`
+# Run application
+python app.py
+```
 
 ## 🧪 Testing
 
-### Manual Testing Steps
+### Manual Test Cases
 
-1. **Upload Test**:
+1. **Legacy Mode Testing**:
    - Upload various file types and sizes
-   - Test different expiry times
-   - Verify QR generation and PIN display
+   - Test PIN validation and attempt limiting
+   - Verify expiry time enforcement
+   - Test receiver name validation
 
-2. **Security Test**:
-   - Test wrong PIN attempts (should lock after 3)
-   - Test expired links (should deny access)
-   - Test tampered data detection
+2. **Session Mode Testing**:
+   - Create sessions with different expiry times
+   - Test key generation and public key sharing
+   - Verify end-to-end encryption flow
+   - Test concurrent sessions
 
-3. **Mobile Test**:
-   - Scan QR with Google Lens
-   - Test on different mobile browsers
-   - Verify responsive design
+3. **Security Testing**:
+   - Attempt access with wrong PINs
+   - Test expired link handling
+   - Verify data integrity checking
+   - Test tamper detection
 
-### Logs
+4. **Mobile Testing**:
+   - QR code scanning with different apps
+   - Test responsive design on various devices
+   - Verify mobile browser compatibility
 
-The application logs all cryptographic operations to the console:
-- File compression/decompression
-- Encryption/decryption steps
-- Security events (wrong PINs, expired links)
-- Access attempts and results
+### Logs and Monitoring
 
-## 🎓 Academic Focus
+The application provides comprehensive logging:
+- Cryptographic operations (compression, encryption, decryption)
+- Security events (failed attempts, expired access, tampering)
+- Transfer statistics (file sizes, compression ratios)
+- Access patterns (timestamps, user agents)
+
+## 🎓 Educational Value
 
 This project demonstrates:
-- **Applied Cryptography**: Real-world implementation of multiple algorithms
-- **System Security**: Defense in depth with multiple security layers
-- **Database Security**: Secure storage of encrypted data
-- **Web Security**: Session-based security without user accounts
-- **Mobile Integration**: QR code compatibility with modern devices
+
+### Applied Cryptography
+- **Symmetric Encryption**: AES-256 implementation
+- **Asymmetric Encryption**: ElGamal key exchange
+- **Data Compression**: Huffman coding algorithm
+- **Hash Functions**: SHA-256 for integrity verification
+
+### Security Engineering
+- **Defense in Depth**: Multiple security layers
+- **Forward Secrecy**: Ephemeral key management
+- **Access Control**: Multi-factor authentication
+- **Secure Development**: Input validation, error handling
+
+### System Architecture
+- **Database Security**: Encrypted data storage
+- **Web Security**: Session management, CSRF protection
+- **Mobile Integration**: QR code standards compliance
+- **API Design**: RESTful endpoint architecture
 
 ## ⚠️ Important Notes
 
-- This is an academic project for educational purposes
-- Not intended for production use without additional security hardening
-- Files are temporarily stored on the server (encrypted)
-- Use only for demonstration and learning purposes
-- Always use HTTPS in production environments
+- **Academic Purpose**: Designed for educational demonstration
+- **Not Production Ready**: Requires additional hardening for production use
+- **HTTPS Required**: Always use HTTPS in production environments
+- **Regular Updates**: Keep dependencies updated for security
+- **Data Retention**: Temporary server storage of encrypted files
 
 ## 🐛 Troubleshooting
 
 ### Common Issues
 
-1. **"Module not found" errors**:
+1. **Module Import Errors**:
    ```bash
    pip install -r requirements.txt
    ```
 
-2. **Database errors**:
-   - Delete `secure_transfer.db` and restart the application
+2. **Database Corruption**:
+   ```bash
+   rm secure_transfer.db
+   python app.py  # Will recreate database
+   ```
 
-3. **QR code not scannable**:
-   - Ensure good lighting and steady hands
+3. **QR Code Scanning Issues**:
+   - Ensure adequate lighting
    - Try different QR scanner apps
+   - Use Google Lens for best compatibility
 
-4. **File too large**:
-   - Compress images before upload
-   - Use PDF compression tools
+4. **File Upload Failures**:
+   - Check file size limit (10MB)
+   - Verify file type is supported
+   - Ensure stable network connection
 
-5. **Mobile access issues**:
-   - Use ngrok for external access
-   - Check firewall settings
+5. **Mobile Access Problems**:
+   - Use ngrok for external access testing
+   - Check firewall and network settings
+   - Verify mobile browser compatibility
 
 ### Debug Mode
 
-Run with debug information:
+Enable detailed logging:
 ```bash
 FLASK_DEBUG=1 python app.py
 ```
 
-## 📞 Support
+### Performance Optimization
 
-For academic or technical questions:
-- Check the console logs for detailed error information
+For better performance:
+- Use production WSGI server (gunicorn, uWSGI)
+- Enable database connection pooling
+- Implement file size optimization
+- Add caching for static assets
+
+## 📞 Support & Contribution
+
+### Getting Help
+- Check console logs for detailed error information
 - Verify all dependencies are correctly installed
 - Ensure Python version compatibility (3.8+)
+- Review browser console for client-side errors
+
+### Educational Use
+This project serves as a comprehensive example of:
+- Modern cryptographic implementations
+- Secure web application development
+- Database security best practices
+- Mobile-first responsive design
 
 ---
 
-**CNS Project - Secure File Transfer System**  
-*Demonstrating practical cryptography implementation*
+**CNS Project - Dual Mode Secure File Transfer**  
+*Demonstrating Advanced Cryptography & End-to-End Security*
