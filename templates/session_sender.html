@@ -1,0 +1,854 @@
+{% extends "base.html" %}
+{% block title %}Session-Based Secure Transfer - Sender{% endblock %}
+
+{% block content %}
+<div class="header slide-in">
+    <h1><i class="fas fa-paper-plane"></i> Create Secure Session</h1>
+    <p>End-to-End Encrypted File Transfer</p>
+    
+    <div style="margin: 20px 0;">
+        <div class="encryption-badge">
+            <i class="fas fa-user-shield"></i> Zero-Knowledge Server
+        </div>
+        <div class="encryption-badge">
+            <i class="fas fa-key"></i> Client-Side Keys
+        </div>
+        <div class="encryption-badge">
+            <i class="fas fa-clock"></i> Auto-Expiry
+        </div>
+    </div>
+</div>
+
+<!-- Enhanced Step Progress Indicator -->
+<div class="step-indicator fade-in">
+    <div class="step" id="progress-step1">
+        <div class="step-circle">1</div>
+        <div class="step-label">Create Session</div>
+    </div>
+    <div class="step" id="progress-step2">
+        <div class="step-circle">2</div>
+        <div class="step-label">Share QR Code</div>
+    </div>
+    <div class="step" id="progress-step3">
+        <div class="step-circle">3</div>
+        <div class="step-label">Wait for Key</div>
+    </div>
+    <div class="step" id="progress-step4">
+        <div class="step-circle">4</div>
+        <div class="step-label">Upload File</div>
+    </div>
+    <div class="step" id="progress-step5">
+        <div class="step-circle">✓</div>
+        <div class="step-label">Complete</div>
+    </div>
+</div>
+
+<div class="main-content slide-in">
+                    <!-- Step 1: Create Session -->
+                    <div id="step1" class="step-section active-step">
+                        <div class="step-header">
+                            <div class="step-icon">
+                                <i class="fas fa-play-circle"></i>
+                            </div>
+                            <div>
+                                <h3>Create Your Secure Session</h3>
+                                <p>Set up a new end-to-end encrypted session</p>
+                            </div>
+                        </div>
+                        
+                        <div class="step-content">
+                            <form id="sessionForm" class="enhanced-form">
+                                <div class="form-group">
+                                    <label for="senderName">Your Name (Sender)</label>
+                                    <input type="text" id="senderName" placeholder="Enter your name" required>
+                                    <div class="form-hint">This will be shown to the receiver</div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="expiryMinutes">Session Expiry</label>
+                                    <select id="expiryMinutes">
+                                        <option value="30">30 minutes</option>
+                                        <option value="60">1 hour</option>
+                                        <option value="120">2 hours</option>
+                                        <option value="180">3 hours</option>
+                                    </select>
+                                    <div class="form-hint">Session will automatically expire and cleanup</div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-rocket"></i> Create Secure Session
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Step 2: Share QR Code -->
+                    <div id="step2" class="step-section" style="display: none;">
+                        <div class="step-header">
+                            <div class="step-icon success">
+                                <i class="fas fa-qrcode"></i>
+                            </div>
+                            <div>
+                                <h3>Share Session with Receiver</h3>
+                                <p>Session created successfully! Share the QR code below</p>
+                            </div>
+                        </div>
+                        
+                        <div class="step-content">
+                            <div class="alert alert-success">
+                                <i class="fas fa-check-circle"></i>
+                                <div>
+                                    <strong>Session Created Successfully!</strong><br>
+                                    Your secure session is ready for sharing
+                                </div>
+                            </div>
+                            
+                            <div class="qr-container">
+                                <div class="qr-wrapper">
+                                    <div id="qrCodeContainer" class="qr-code-display"></div>
+                                </div>
+                                <p class="qr-instruction">
+                                    <i class="fas fa-mobile-alt"></i>
+                                    Receiver should scan this QR code to join the session
+                                </p>
+                            </div>
+                            
+                            <div class="session-info">
+                                <div class="info-row">
+                                    <span class="info-label">Session ID:</span>
+                                    <span id="sessionId" class="info-value"></span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-label">Expires:</span>
+                                    <span id="expiryTime" class="info-value"></span>
+                                </div>
+                            </div>
+                            
+                            <button type="button" class="btn btn-outline-primary" onclick="checkReceiverStatus()">
+                                <i class="fas fa-sync"></i> Check if Receiver Joined
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Wait for Key Generation -->
+                    <div id="step3" class="step-section" style="display: none;">
+                        <div class="step-header">
+                            <div class="step-icon warning">
+                                <i class="fas fa-key"></i>
+                            </div>
+                            <div>
+                                <h3>Waiting for Encryption Setup</h3>
+                                <p>Receiver has joined! Waiting for key generation...</p>
+                            </div>
+                        </div>
+                        
+                        <div class="step-content">
+                            <div class="waiting-container">
+                                <div class="waiting-animation">
+                                    <div class="pulse-circle"></div>
+                                    <div class="pulse-circle delay-1"></div>
+                                    <div class="pulse-circle delay-2"></div>
+                                </div>
+                                <div class="waiting-text">
+                                    <h4>🔐 Encryption Keys Being Generated</h4>
+                                    <p>The receiver is generating their private keys securely on their device.</p>
+                                    <div class="crypto-indicators">
+                                        <div class="crypto-indicator processing">
+                                            <div class="icon"><i class="fas fa-cog"></i></div>
+                                            ElGamal Key Pair Generation
+                                        </div>
+                                        <div class="crypto-indicator">
+                                            <div class="icon"><i class="fas fa-shield-alt"></i></div>
+                                            Private Key Security
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button type="button" class="btn btn-outline-warning" onclick="checkKeyStatus()">
+                                <i class="fas fa-sync"></i> Check Encryption Status
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Step 4: Upload File -->
+                    <div id="step4" class="step-section" style="display: none;">
+                        <div class="step-header">
+                            <div class="step-icon success">
+                                <i class="fas fa-upload"></i>
+                            </div>
+                            <div>
+                                <h3>Upload and Encrypt File</h3>
+                                <p>Ready for secure file transfer! Upload your file below</p>
+                            </div>
+                        </div>
+                        
+                        <div class="step-content">
+                            <form id="fileUploadForm" class="enhanced-form" enctype="multipart/form-data">
+                                <div class="file-upload-area">
+                                    <div class="file-drop-zone" id="fileDropZone">
+                                        <i class="fas fa-cloud-upload-alt"></i>
+                                        <h4>Drag & Drop or Click to Upload</h4>
+                                        <p>Supported: JPG, PNG, GIF, PDF</p>
+                                        <input type="file" id="fileInput" accept=".jpg,.jpeg,.png,.gif,.pdf" required hidden>
+                                        <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('fileInput').click()">
+                                            <i class="fas fa-folder-open"></i> Choose File
+                                        </button>
+                                    </div>
+                                    <div id="filePreview" class="file-preview" style="display: none;">
+                                        <div class="file-info">
+                                            <i class="fas fa-file"></i>
+                                            <div>
+                                                <div class="file-name"></div>
+                                                <div class="file-size"></div>
+                                            </div>
+                                            <button type="button" class="btn-remove" onclick="removeFile()">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-success" id="uploadBtn" disabled>
+                                    <i class="fas fa-shield-alt"></i> Encrypt & Upload File
+                                </button>
+                            </form>
+                            
+                            <div class="progress-container" id="uploadProgress">
+                                <div class="progress-header">
+                                    <div class="progress-title">Encrypting and uploading file...</div>
+                                    <div class="progress-percentage">0%</div>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill"></div>
+                                </div>
+                                <div class="crypto-indicators">
+                                    <div class="crypto-indicator" id="compressionIndicator">
+                                        <div class="icon"><i class="fas fa-compress-alt"></i></div>
+                                        Huffman Compression
+                                    </div>
+                                    <div class="crypto-indicator" id="aesIndicator">
+                                        <div class="icon"><i class="fas fa-lock"></i></div>
+                                        AES-256 Encryption
+                                    </div>
+                                    <div class="crypto-indicator" id="elgamalIndicator">
+                                        <div class="icon"><i class="fas fa-key"></i></div>
+                                        ElGamal Key Exchange
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Step 5: Transfer Complete -->
+                    <div id="step5" class="step-section" style="display: none;">
+                        <h5 class="text-success"><i class="fas fa-check-circle"></i> Secure Transfer Complete!</h5>
+                        <div class="alert alert-success">
+                            <strong>✓ File encrypted and ready for download</strong><br>
+                            The receiver can now decrypt and download the file directly using their private key.<br>
+                            No more QR codes needed - the secure transfer is complete!
+                        </div>
+                        <div id="uploadDetails"></div>
+                        <div class="alert alert-info">
+                            <strong><i class="fas fa-info-circle"></i> What happens next:</strong><br>
+                            • The receiver will see a "Decrypt File" option directly<br>
+                            • All data will be automatically deleted after download<br>
+                            • The session will expire as scheduled
+                        </div>
+                        <button type="button" class="btn btn-primary" onclick="location.reload()">
+                            <i class="fas fa-plus"></i> Send Another File
+                        </button>
+                    </div>
+
+                    <!-- Error Display -->
+                    <div id="errorAlert" class="alert alert-danger" style="display: none;"></div>
+                </div>
+            </div>
+
+            <!-- Security Info -->
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h6 class="text-primary"><i class="fas fa-shield-alt"></i> Security Features</h6>
+                    <ul class="list-unstyled small">
+                        <li><i class="fas fa-check text-success"></i> End-to-End Encryption</li>
+                        <li><i class="fas fa-check text-success"></i> Private key never leaves receiver's device</li>
+                        <li><i class="fas fa-check text-success"></i> Server acts as untrusted relay</li>
+                        <li><i class="fas fa-check text-success"></i> One-time access with automatic cleanup</li>
+                        <li><i class="fas fa-check text-success"></i> Integrity verification before decryption</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentSessionId = null;
+let checkInterval = null;
+
+// Step 1: Create Session
+document.getElementById('sessionForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const senderName = document.getElementById('senderName').value.trim();
+    const expiryMinutes = parseInt(document.getElementById('expiryMinutes').value);
+    
+    try {
+        const response = await fetch('/create_session', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                sender_id: senderName,
+                expiry: expiryMinutes
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            currentSessionId = result.session_id;
+            document.getElementById('sessionId').textContent = result.session_id;
+            document.getElementById('expiryTime').textContent = result.expiry_time;
+            document.getElementById('qrCodeContainer').innerHTML = `<img src="${result.qr_code}" alt="QR Code" class="img-fluid" style="max-width: 300px;">`;
+            
+            showStep(2);
+            
+            // Start checking for receiver status
+            checkInterval = setInterval(checkReceiverStatus, 3000);
+        } else {
+            showError(result.error);
+        }
+    } catch (error) {
+        showError('Failed to create session: ' + error.message);
+    }
+});
+
+// Check if receiver has joined
+async function checkReceiverStatus() {
+    if (!currentSessionId) return;
+    
+    try {
+        const response = await fetch(`/session_status/${currentSessionId}`);
+        const result = await response.json();
+        
+        if (result.status === 'RECEIVER_JOINED') {
+            clearInterval(checkInterval);
+            showStep(3);
+            
+            // Start checking for key generation
+            checkInterval = setInterval(checkKeyStatus, 2000);
+        }
+    } catch (error) {
+        console.error('Error checking receiver status:', error);
+    }
+}
+
+// Check if receiver has generated key
+async function checkKeyStatus() {
+    if (!currentSessionId) return;
+    
+    try {
+        const response = await fetch(`/session_status/${currentSessionId}`);
+        const result = await response.json();
+        
+        if (result.has_public_key) {
+            clearInterval(checkInterval);
+            showStep(4);
+        }
+    } catch (error) {
+        console.error('Error checking key status:', error);
+    }
+}
+
+// Step 4: Upload File
+document.getElementById('fileUploadForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const fileInput = document.getElementById('fileInput');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        showError('Please select a file');
+        return;
+    }
+    
+    document.getElementById('uploadProgress').style.display = 'block';
+    
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('session_id', currentSessionId);
+        
+        const response = await fetch('/session_upload', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        document.getElementById('uploadProgress').style.display = 'none';
+        
+        if (result.success) {
+            document.getElementById('uploadDetails').innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>File:</strong> ${result.file_name}<br>
+                        <strong>Original Size:</strong> ${formatBytes(result.original_size)}<br>
+                        <strong>Compressed Size:</strong> ${formatBytes(result.compressed_size)}<br>
+                        <strong>Compression:</strong> ${result.compression_ratio.toFixed(2)}%
+                    </div>
+                </div>
+            `;
+            showStep(5);
+        } else {
+            showError(result.error);
+        }
+    } catch (error) {
+        document.getElementById('uploadProgress').style.display = 'none';
+        showError('Upload failed: ' + error.message);
+    }
+});
+
+function showStep(stepNumber) {
+    // Hide all steps
+    for (let i = 1; i <= 5; i++) {
+        document.getElementById(`step${i}`).style.display = 'none';
+    }
+    // Show current step
+    document.getElementById(`step${stepNumber}`).style.display = 'block';
+}
+
+function showError(message) {
+    const errorAlert = document.getElementById('errorAlert');
+    errorAlert.textContent = message;
+    errorAlert.style.display = 'block';
+    setTimeout(() => {
+        errorAlert.style.display = 'none';
+    }, 5000);
+}
+
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// Enhanced UI functions
+function showStep(stepNumber) {
+    // Hide all steps
+    for (let i = 1; i <= 5; i++) {
+        const step = document.getElementById(`step${i}`);
+        if (step) {
+            step.style.display = 'none';
+            step.classList.remove('active-step');
+        }
+    }
+    
+    // Show current step with animation
+    const currentStep = document.getElementById(`step${stepNumber}`);
+    if (currentStep) {
+        currentStep.style.display = 'block';
+        currentStep.classList.add('active-step', 'slide-in');
+    }
+    
+    // Update progress indicator
+    updateStepIndicator(stepNumber - 1);
+}
+
+function updateStepIndicator(activeStep) {
+    for (let i = 1; i <= 5; i++) {
+        const progressStep = document.getElementById(`progress-step${i}`);
+        if (progressStep) {
+            progressStep.classList.remove('active', 'completed');
+            if (i <= activeStep) {
+                progressStep.classList.add('completed');
+            } else if (i === activeStep + 1) {
+                progressStep.classList.add('active');
+            }
+        }
+    }
+}
+
+// File handling
+function removeFile() {
+    document.getElementById('fileInput').value = '';
+    document.getElementById('filePreview').style.display = 'none';
+    document.getElementById('fileDropZone').style.display = 'block';
+    document.getElementById('uploadBtn').disabled = true;
+}
+
+// Enhanced file input handling
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('fileInput');
+    const fileDropZone = document.getElementById('fileDropZone');
+    const filePreview = document.getElementById('filePreview');
+    const uploadBtn = document.getElementById('uploadBtn');
+    
+    if (fileInput && fileDropZone) {
+        // File input change
+        fileInput.addEventListener('change', function(e) {
+            handleFileSelect(e.target.files[0]);
+        });
+        
+        // Drag and drop
+        fileDropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.classList.add('dragover');
+        });
+        
+        fileDropZone.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.classList.remove('dragover');
+        });
+        
+        fileDropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                handleFileSelect(files[0]);
+            }
+        });
+    }
+    
+    function handleFileSelect(file) {
+        if (file) {
+            const fileName = file.name;
+            const fileSize = formatBytes(file.size);
+            
+            document.querySelector('.file-name').textContent = fileName;
+            document.querySelector('.file-size').textContent = fileSize;
+            
+            fileDropZone.style.display = 'none';
+            filePreview.style.display = 'block';
+            uploadBtn.disabled = false;
+        }
+    }
+});
+</script>
+
+<style>
+/* Enhanced Step Sections */
+.step-section {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.95) 100%);
+    border-radius: var(--border-radius);
+    padding: 30px;
+    margin: 25px 0;
+    border: 2px solid transparent;
+    box-shadow: var(--shadow-light);
+    transition: var(--transition);
+    opacity: 0.7;
+    transform: translateY(10px);
+}
+
+.step-section.active-step {
+    border-color: var(--primary-color);
+    box-shadow: var(--shadow-heavy);
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.step-header {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 25px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.step-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8em;
+    background: var(--primary-gradient);
+    color: white;
+    box-shadow: var(--shadow-medium);
+    flex-shrink: 0;
+}
+
+.step-icon.success {
+    background: var(--secondary-gradient);
+}
+
+.step-icon.warning {
+    background: var(--warning-gradient);
+}
+
+.step-header h3 {
+    margin: 0 0 8px 0;
+    color: var(--text-primary);
+    font-size: 1.5em;
+    font-weight: 600;
+}
+
+.step-header p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 1.05em;
+}
+
+.step-content {
+    animation: fadeInScale 0.5s ease-out;
+}
+
+/* Enhanced Forms */
+.enhanced-form .form-group {
+    margin-bottom: 25px;
+}
+
+.enhanced-form .form-hint {
+    font-size: 0.9em;
+    color: var(--text-secondary);
+    margin-top: 5px;
+    font-style: italic;
+}
+
+/* QR Code Container */
+.qr-container {
+    text-align: center;
+    margin: 30px 0;
+}
+
+.qr-wrapper {
+    display: inline-block;
+    padding: 20px;
+    background: white;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-medium);
+    margin-bottom: 20px;
+}
+
+.qr-code-display img {
+    max-width: 300px;
+    border-radius: 8px;
+}
+
+.qr-instruction {
+    color: var(--text-secondary);
+    font-size: 1.05em;
+    margin: 15px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+/* Session Info */
+.session-info {
+    background: rgba(102, 126, 234, 0.05);
+    border-radius: var(--border-radius);
+    padding: 20px;
+    margin: 20px 0;
+    border: 1px solid rgba(102, 126, 234, 0.1);
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 10px 0;
+}
+
+.info-label {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.info-value {
+    font-family: 'Courier New', monospace;
+    background: rgba(255, 255, 255, 0.8);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.95em;
+}
+
+/* Waiting Animation */
+.waiting-container {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.waiting-animation {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    margin: 0 auto 30px;
+}
+
+.pulse-circle {
+    position: absolute;
+    width: 100px;
+    height: 100px;
+    border: 3px solid var(--warning-gradient);
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+    opacity: 0;
+}
+
+.pulse-circle.delay-1 {
+    animation-delay: 0.5s;
+}
+
+.pulse-circle.delay-2 {
+    animation-delay: 1s;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(0.3);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1.2);
+        opacity: 0;
+    }
+}
+
+.waiting-text h4 {
+    color: var(--text-primary);
+    margin-bottom: 15px;
+    font-size: 1.3em;
+}
+
+.waiting-text p {
+    color: var(--text-secondary);
+    margin-bottom: 25px;
+    font-size: 1.05em;
+    line-height: 1.6;
+}
+
+/* File Upload Area */
+.file-upload-area {
+    margin: 25px 0;
+}
+
+.file-drop-zone {
+    border: 3px dashed #cbd5e0;
+    border-radius: var(--border-radius);
+    padding: 60px 30px;
+    text-align: center;
+    background: rgba(247, 250, 252, 0.8);
+    transition: var(--transition);
+    cursor: pointer;
+}
+
+.file-drop-zone:hover,
+.file-drop-zone.dragover {
+    border-color: var(--primary-color);
+    background: rgba(102, 126, 234, 0.05);
+    transform: translateY(-2px);
+}
+
+.file-drop-zone i {
+    font-size: 3em;
+    color: var(--primary-color);
+    margin-bottom: 20px;
+    display: block;
+}
+
+.file-drop-zone h4 {
+    color: var(--text-primary);
+    margin-bottom: 10px;
+    font-size: 1.3em;
+}
+
+.file-drop-zone p {
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+}
+
+.file-preview {
+    background: rgba(72, 187, 120, 0.05);
+    border: 2px solid rgba(72, 187, 120, 0.2);
+    border-radius: var(--border-radius);
+    padding: 20px;
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.file-info i {
+    font-size: 2em;
+    color: var(--success-color);
+}
+
+.file-info .file-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 1.1em;
+}
+
+.file-info .file-size {
+    color: var(--text-secondary);
+    font-size: 0.95em;
+}
+
+.btn-remove {
+    background: none;
+    border: none;
+    color: #e53e3e;
+    font-size: 1.2em;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 4px;
+    margin-left: auto;
+    transition: var(--transition);
+}
+
+.btn-remove:hover {
+    background: rgba(229, 62, 62, 0.1);
+}
+
+/* Crypto Indicators */
+.crypto-indicators {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+@media (max-width: 768px) {
+    .step-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 15px;
+    }
+    
+    .session-info .info-row {
+        flex-direction: column;
+        gap: 5px;
+        text-align: center;
+    }
+    
+    .file-drop-zone {
+        padding: 40px 20px;
+    }
+    
+    .file-drop-zone i {
+        font-size: 2.5em;
+    }
+    
+    .waiting-animation {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .pulse-circle {
+        width: 80px;
+        height: 80px;
+    }
+}
+</style>
+
+{% endblock %}

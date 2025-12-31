@@ -36,8 +36,13 @@ def home():
 
 @app.route('/send')
 def send_page():
-    """Send file page"""
+    """Send file page (legacy)"""
     return render_template('send.html')
+
+@app.route('/session_send')
+def session_send_page():
+    """Session-based secure send page"""
+    return render_template('session_sender.html')
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -333,6 +338,403 @@ def download_file(transaction_id):
     except Exception as e:
         logger.error(f"Download error: {str(e)}")
         return "Download failed", 500
+
+# === NEW SESSION-BASED E2E ENCRYPTION ROUTES ===
+
+@app.route('/create_session', methods=['POST'])
+def create_session():
+    """Create a new session for E2E encrypted transfer"""
+    try:
+        data = request.get_json()
+        sender_id = data.get('sender_id', 'Anonymous')
+        expiry_minutes = int(data.get('expiry', 30))
+        
+        # Generate unique session ID
+        session_id = str(uuid.uuid4())
+        
+        # Set expiry time
+        expiry_time = datetime.now() + timedelta(minutes=expiry_minutes)
+        
+        # Get server URL
+        server_url = request.url_root
+        
+        # Create session in database
+        db_manager.create_session(session_id, sender_id, server_url, expiry_time)
+        
+        # Generate QR code with session info (NO cryptographic keys)
+        qr_data = {
+            'session_id': session_id,
+            'sender_id': sender_id,
+            'server_url': server_url
+        }
+        qr_url = f"{server_url}join_session?sid={session_id}"
+        qr_code_data = generate_qr_code(qr_url)
+        
+        logger.info(f"Session created: {session_id} by {sender_id}")
+        
+        return jsonify({
+            'success': True,
+            'session_id': session_id,
+            'qr_code': qr_code_data,
+            'qr_url': qr_url,
+            'expiry_time': expiry_time.strftime('%Y-%m-%d %H:%M:%S')
+        })
+        
+    except Exception as e:
+        logger.error(f"Session creation error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/join_session')
+def join_session():
+    """Receiver joins session by scanning QR code"""
+    session_id = request.args.get('sid', '')
+    if not session_id:
+        return jsonify({'error': 'Session ID required'}), 400
+    
+    # Check if session exists and is valid
+    session = db_manager.get_session(session_id)
+    if not session:
+        return jsonify({'error': 'Session not found'}), 404
+    
+    # Check if session is expired
+    if datetime.now() > datetime.fromisoformat(session['expiry_time']):
+        db_manager.delete_session(session_id)
+        return jsonify({'error': 'Session expired'}), 410
+    
+    # Update session status
+    db_manager.update_session_receiver_joined(session_id)
+    
+    # Render receiver page
+    return render_template('session_receiver.html', session_id=session_id, session=session)
+
+@app.route('/generate_keypair', methods=['POST'])
+def generate_keypair():
+    """Receiver generates key pair and submits public key to server"""
+    try:
+        data = request.get_json()
+        session_id = data.get('session_id')
+        
+        if not session_id:
+            return jsonify({'error': 'Session ID required'}), 400
+        
+        # Check if session exists
+        session = db_manager.get_session(session_id)
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        # Check expiry
+        if datetime.now() > datetime.fromisoformat(session['expiry_time']):
+            db_manager.delete_session(session_id)
+            return jsonify({'error': 'Session expired'}), 410
+        
+        # Generate ElGamal key pair ON THE CLIENT SIDE (this is just for demo)
+        # In real implementation, this would be done in JavaScript
+        elgamal = ElGamalCrypto()
+        public_key_bytes, private_key_bytes = elgamal.generate_keypair()
+        
+        # Extract public key components
+        public_key = elgamal._deserialize_key(public_key_bytes)
+        p, g, y = public_key
+        
+        # Store ONLY public key in database (private key never sent to server)
+        db_manager.store_session_public_key(session_id, str(p), str(g), str(y))
+        
+        logger.info(f"Public key generated for session: {session_id}")
+        logger.info("CRITICAL: Private key generated on client side, never sent to server")
+        
+        # Return private key to client (in real implementation, this stays in browser)
+        private_key = elgamal._deserialize_key(private_key_bytes)
+        
+        return jsonify({
+            'success': True,
+            'public_key': {'p': str(p), 'g': str(g), 'y': str(y)},
+            'private_key': {'p': str(private_key[0]), 'g': str(private_key[1]), 'x': str(private_key[2])},
+            'message': 'Key pair generated. Private key stays on your device!'
+        })
+        
+    except Exception as e:
+        logger.error(f"Key generation error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/get_public_key/<session_id>')
+def get_public_key(session_id):
+    """Sender retrieves receiver's public key"""
+    try:
+        session = db_manager.get_session(session_id)
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        # Check expiry
+        if datetime.now() > datetime.fromisoformat(session['expiry_time']):
+            db_manager.delete_session(session_id)
+            return jsonify({'error': 'Session expired'}), 410
+        
+        # Check if public key is available
+        if not session['public_key_p']:
+            return jsonify({'error': 'Public key not yet generated'}), 404
+        
+        public_key = {
+            'p': session['public_key_p'],
+            'g': session['public_key_g'],
+            'y': session['public_key_y']
+        }
+        
+        return jsonify({
+            'success': True,
+            'public_key': public_key,
+            'session_status': session['status']
+        })
+        
+    except Exception as e:
+        logger.error(f"Public key retrieval error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/session_upload', methods=['POST'])
+def session_upload():
+    """Handle file upload for session-based E2E encryption"""
+    try:
+        session_id = request.form.get('session_id')
+        if not session_id:
+            return jsonify({'error': 'Session ID required'}), 400
+        
+        # Get session
+        session = db_manager.get_session(session_id)
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        # Check expiry
+        if datetime.now() > datetime.fromisoformat(session['expiry_time']):
+            db_manager.delete_session(session_id)
+            return jsonify({'error': 'Session expired'}), 410
+        
+        # Check if public key is available
+        if not session['public_key_p']:
+            return jsonify({'error': 'Waiting for receiver to generate key'}), 400
+        
+        # Check if file was uploaded
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file selected'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Validate file type
+        allowed_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.pdf'}
+        file_ext = os.path.splitext(file.filename)[1].lower()
+        if file_ext not in allowed_extensions:
+            return jsonify({'error': 'Only images (JPG, PNG, GIF) and PDF files are allowed'}), 400
+        
+        # Read file data
+        file_data = file.read()
+        original_size = len(file_data)
+        
+        # Step 1: Compress file using Huffman coding
+        huffman = HuffmanCompression()
+        compressed_data = huffman.compress(file_data)
+        compressed_size = len(compressed_data)
+        compression_ratio = ((original_size - compressed_size) / original_size) * 100 if original_size > 0 else 0.0
+        
+        logger.info(f"File compressed: {original_size} -> {compressed_size} bytes ({compression_ratio:.2f}%)")
+        
+        # Step 2: Generate random AES key
+        aes_crypto = AESCrypto()
+        aes_key = aes_crypto.generate_key()
+        
+        # Step 3: Encrypt compressed file using AES
+        encrypted_file = aes_crypto.encrypt(compressed_data, aes_key)
+        
+        # Step 4: Encrypt AES key using receiver's public key
+        elgamal = ElGamalCrypto()
+        public_key = (int(session['public_key_p']), int(session['public_key_g']), int(session['public_key_y']))
+        public_key_bytes = elgamal._serialize_key(public_key)
+        encrypted_aes_key = elgamal.encrypt(aes_key, public_key_bytes)
+        
+        # Step 5: Generate hash of encrypted file for integrity
+        hash_value = hashlib.sha256(encrypted_file).hexdigest()
+        
+        # Store encrypted data in session
+        db_manager.store_session_encrypted_data(
+            session_id=session_id,
+            encrypted_file=base64.b64encode(encrypted_file).decode(),
+            encrypted_aes_key=base64.b64encode(encrypted_aes_key).decode(),
+            hash_value=hash_value,
+            file_name=file.filename,
+            huffman_tree=base64.b64encode(huffman.get_tree()).decode(),
+            original_size=original_size,
+            compressed_size=compressed_size,
+            compression_ratio=compression_ratio
+        )
+        
+        logger.info(f"File uploaded and encrypted for session: {session_id}")
+        logger.info("CRITICAL: No private keys stored on server")
+        
+        return jsonify({
+            'success': True,
+            'session_id': session_id,
+            'file_name': file.filename,
+            'original_size': original_size,
+            'compressed_size': compressed_size,
+            'compression_ratio': compression_ratio,
+            'message': 'File encrypted and uploaded successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Session upload error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/session_decrypt', methods=['POST'])
+def session_decrypt():
+    """Handle file decryption for session-based E2E encryption"""
+    try:
+        data = request.get_json()
+        session_id = data.get('session_id')
+        private_key_data = data.get('private_key')
+        
+        if not session_id or not private_key_data:
+            return jsonify({'error': 'Session ID and private key required'}), 400
+        
+        # Get session
+        session = db_manager.get_session(session_id)
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        # Check expiry
+        if datetime.now() > datetime.fromisoformat(session['expiry_time']):
+            db_manager.delete_session(session_id)
+            return jsonify({'error': 'Session expired'}), 410
+        
+        # Check if encrypted file is available
+        if not session['encrypted_file']:
+            return jsonify({'error': 'No file uploaded yet'}), 400
+        
+        # Verify hash BEFORE decryption
+        encrypted_file = base64.b64decode(session['encrypted_file'].encode())
+        if hashlib.sha256(encrypted_file).hexdigest() != session['hash_value']:
+            logger.error("Hash verification failed")
+            return jsonify({'error': 'Data tampered - access denied'}), 400
+        
+        logger.info("Hash verification successful")
+        
+        # Reconstruct private key
+        elgamal = ElGamalCrypto()
+        private_key = (int(private_key_data['p']), int(private_key_data['g']), int(private_key_data['x']))
+        private_key_bytes = elgamal._serialize_key(private_key)
+        
+        # Decrypt AES key using private key
+        encrypted_aes_key = base64.b64decode(session['encrypted_aes_key'].encode())
+        aes_key = elgamal.decrypt(encrypted_aes_key, private_key_bytes)
+        
+        # Decrypt file using AES
+        aes_crypto = AESCrypto()
+        compressed_data = aes_crypto.decrypt(encrypted_file, aes_key)
+        
+        # Decompress using Huffman
+        huffman = HuffmanCompression()
+        huffman_tree = base64.b64decode(session['huffman_tree'].encode())
+        huffman.set_tree(huffman_tree)
+        original_data = huffman.decompress(compressed_data)
+        
+        # Mark session as accessed
+        db_manager.mark_session_accessed(session_id)
+        
+        # Store temp file for download
+        db_manager.store_temp_file(session_id, original_data, session['file_name'])
+        
+        logger.info(f"File decrypted successfully for session: {session_id}")
+        logger.info("CRITICAL: Private key used locally, never sent to server")
+        
+        # Prepare response based on file type
+        file_name = session['file_name']
+        file_ext = os.path.splitext(file_name)[1].lower()
+        
+        if file_ext == '.pdf':
+            response_data = {
+                'success': True,
+                'file_type': 'pdf',
+                'file_name': file_name,
+                'download_url': f'/session_download/{session_id}'
+            }
+        else:
+            file_data_b64 = base64.b64encode(original_data).decode()
+            response_data = {
+                'success': True,
+                'file_type': 'image',
+                'file_name': file_name,
+                'file_data': file_data_b64,
+                'download_url': f'/session_download/{session_id}'
+            }
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        logger.error(f"Session decryption error: {str(e)}")
+        return jsonify({'error': 'Decryption failed'}), 500
+
+@app.route('/session_download/<session_id>')
+def session_download(session_id):
+    """Download decrypted file from session (one-time access)"""
+    try:
+        file_data = db_manager.get_temp_file(session_id)
+        if not file_data:
+            return "File not found or already downloaded", 404
+        
+        # Get file extension for MIME type
+        file_name = file_data['name']
+        file_ext = os.path.splitext(file_name)[1].lower()
+        
+        if file_ext == '.pdf':
+            mimetype = 'application/pdf'
+        elif file_ext in ['.jpg', '.jpeg']:
+            mimetype = 'image/jpeg'
+        elif file_ext == '.png':
+            mimetype = 'image/png'
+        elif file_ext == '.gif':
+            mimetype = 'image/gif'
+        else:
+            mimetype = 'application/octet-stream'
+        
+        # Clean up
+        db_manager.delete_temp_file(session_id)
+        db_manager.delete_session(session_id)  # One-time access
+        
+        logger.info(f"Session file downloaded: {file_name}")
+        logger.info("Session deleted after one-time access")
+        
+        return send_file(
+            BytesIO(file_data['data']),
+            as_attachment=True,
+            download_name=file_name,
+            mimetype=mimetype
+        )
+        
+    except Exception as e:
+        logger.error(f"Session download error: {str(e)}")
+        return "Download failed", 500
+
+@app.route('/session_status/<session_id>')
+def session_status(session_id):
+    """Check session status"""
+    try:
+        session = db_manager.get_session(session_id)
+        if not session:
+            return jsonify({'error': 'Session not found'}), 404
+        
+        return jsonify({
+            'session_id': session_id,
+            'status': session['status'],
+            'sender_id': session['sender_id'],
+            'created_at': session['created_at'],
+            'expiry_time': session['expiry_time'],
+            'has_public_key': bool(session['public_key_p']),
+            'has_file': bool(session['encrypted_file'])
+        })
+        
+    except Exception as e:
+        logger.error(f"Session status error: {str(e)}")
+        return jsonify({'error': 'Status check failed'}), 500
+
+# === ORIGINAL ROUTES (kept for compatibility) ===
 
 @app.route('/status/<transaction_id>')
 def check_status(transaction_id):

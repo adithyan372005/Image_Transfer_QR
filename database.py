@@ -20,7 +20,35 @@ class DatabaseManager:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             
-            # Create transactions table (original schema)
+            # Create sessions table for E2E encrypted transfers
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS sessions (
+                    session_id TEXT PRIMARY KEY,
+                    sender_id TEXT NOT NULL,
+                    server_url TEXT NOT NULL,
+                    public_key_p TEXT,
+                    public_key_g TEXT,
+                    public_key_y TEXT,
+                    encrypted_file TEXT,
+                    encrypted_aes_key TEXT,
+                    hash_value TEXT,
+                    file_name TEXT,
+                    huffman_tree TEXT,
+                    original_size INTEGER DEFAULT 0,
+                    compressed_size INTEGER DEFAULT 0,
+                    compression_ratio REAL DEFAULT 0.0,
+                    status TEXT DEFAULT 'WAITING_FOR_RECEIVER',
+                    attempt_count INTEGER DEFAULT 0,
+                    expiry_time TEXT NOT NULL,
+                    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                    receiver_joined_at TEXT,
+                    key_generated_at TEXT,
+                    file_uploaded_at TEXT,
+                    accessed_at TEXT
+                )
+            ''')
+            
+            # Create transactions table (original schema - kept for compatibility)
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS transactions (
                     transaction_id TEXT PRIMARY KEY,
@@ -290,6 +318,142 @@ class DatabaseManager:
             
             return deleted_count
     
+    # Session management methods for E2E encryption
+    def create_session(self, session_id, sender_id, server_url, expiry_time):
+        """Create a new session for E2E transfer"""
+        with self.lock:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                INSERT INTO sessions (session_id, sender_id, server_url, expiry_time)
+                VALUES (?, ?, ?, ?)
+            ''', (session_id, sender_id, server_url, expiry_time.isoformat()))
+            
+            conn.commit()
+            conn.close()
+    
+    def get_session(self, session_id):
+        """Retrieve session data"""
+        with self.lock:
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            cursor.execute('SELECT * FROM sessions WHERE session_id = ?', (session_id,))
+            result = cursor.fetchone()
+            conn.close()
+            
+            return dict(result) if result else None
+    
+    def update_session_receiver_joined(self, session_id):
+        """Mark session as receiver joined"""
+        with self.lock:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                UPDATE sessions 
+                SET status = 'RECEIVER_JOINED', receiver_joined_at = ?
+                WHERE session_id = ?
+            ''', (datetime.now().isoformat(), session_id))
+            
+            conn.commit()
+            conn.close()
+    
+    def store_session_public_key(self, session_id, public_key_p, public_key_g, public_key_y):
+        """Store receiver's public key in session"""
+        with self.lock:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                UPDATE sessions 
+                SET public_key_p = ?, public_key_g = ?, public_key_y = ?,
+                    status = 'KEY_GENERATED', key_generated_at = ?
+                WHERE session_id = ?
+            ''', (public_key_p, public_key_g, public_key_y, datetime.now().isoformat(), session_id))
+            
+            conn.commit()
+            conn.close()
+    
+    def store_session_encrypted_data(self, session_id, encrypted_file, encrypted_aes_key, 
+                                   hash_value, file_name, huffman_tree, original_size, 
+                                   compressed_size, compression_ratio):
+        """Store encrypted file data in session"""
+        with self.lock:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                UPDATE sessions 
+                SET encrypted_file = ?, encrypted_aes_key = ?, hash_value = ?,
+                    file_name = ?, huffman_tree = ?, original_size = ?,
+                    compressed_size = ?, compression_ratio = ?,
+                    status = 'FILE_UPLOADED', file_uploaded_at = ?
+                WHERE session_id = ?
+            ''', (encrypted_file, encrypted_aes_key, hash_value, file_name, huffman_tree,
+                  original_size, compressed_size, compression_ratio, 
+                  datetime.now().isoformat(), session_id))
+            
+            conn.commit()
+            conn.close()
+    
+    def increment_session_attempts(self, session_id):
+        """Increment attempt count for a session"""
+        with self.lock:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                UPDATE sessions 
+                SET attempt_count = attempt_count + 1 
+                WHERE session_id = ?
+            ''', (session_id,))
+            
+            conn.commit()
+            conn.close()
+    
+    def mark_session_accessed(self, session_id):
+        """Mark session as accessed"""
+        with self.lock:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                UPDATE sessions 
+                SET status = 'ACCESSED', accessed_at = ?
+                WHERE session_id = ?
+            ''', (datetime.now().isoformat(), session_id))
+            
+            conn.commit()
+            conn.close()
+    
+    def delete_session(self, session_id):
+        """Delete session from database"""
+        with self.lock:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute('DELETE FROM sessions WHERE session_id = ?', (session_id,))
+            conn.commit()
+            conn.close()
+    
+    def cleanup_expired_sessions(self):
+        """Clean up expired sessions"""
+        with self.lock:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            current_time = datetime.now().isoformat()
+            cursor.execute('DELETE FROM sessions WHERE expiry_time < ?', (current_time,))
+            
+            deleted_count = cursor.rowcount
+            conn.commit()
+            conn.close()
+            
+            return deleted_count
+
     def get_stats(self):
         """Get database statistics"""
         with self.lock:
@@ -300,6 +464,10 @@ class DatabaseManager:
             cursor.execute('SELECT COUNT(*) FROM transactions WHERE status = "ACTIVE"')
             active_transactions = cursor.fetchone()[0]
             
+            # Count active sessions
+            cursor.execute('SELECT COUNT(*) FROM sessions WHERE status != "ACCESSED"')
+            active_sessions = cursor.fetchone()[0]
+            
             # Count temp files
             cursor.execute('SELECT COUNT(*) FROM temp_files')
             temp_files = cursor.fetchone()[0]
@@ -308,5 +476,6 @@ class DatabaseManager:
             
             return {
                 'active_transactions': active_transactions,
+                'active_sessions': active_sessions,
                 'temp_files': temp_files
             }

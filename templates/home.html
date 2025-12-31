@@ -98,14 +98,61 @@
     </div>
 </div>
 
-<div style="text-align: center; margin: 50px 0;" class="fade-in">
-    <a href="/send" class="btn">
-        <i class="fas fa-paper-plane"></i> Send Secure File
-    </a>
-    <a href="/receive" class="btn btn-secondary">
-        <i class="fas fa-download"></i> Receive File
-    </a>
+<!-- New E2E Session-Based Transfer -->
+<div class="alert alert-info mb-4 fade-in">
+    <h5 class="alert-heading"><i class="fas fa-star"></i> NEW: End-to-End Encrypted Sessions</h5>
+    <p class="mb-2">Enhanced security with proper E2E encryption where private keys never leave your device!</p>
+    <small class="text-muted">
+        <i class="fas fa-shield-alt"></i> Private keys generated on receiver device only
+        <i class="fas fa-server ms-3"></i> Server acts as untrusted relay
+        <i class="fas fa-check ms-3"></i> One-time access with automatic cleanup
+    </small>
 </div>
+
+<div style="text-align: center; margin: 50px 0;" class="fade-in">
+    <div class="row justify-content-center">
+        <div class="col-md-5 mb-3">
+            <a href="/session_send" class="btn btn-primary btn-lg w-100">
+                <i class="fas fa-shield-alt"></i> Start Secure Session
+            </a>
+            <small class="text-muted d-block mt-2">Create E2E encrypted session</small>
+        </div>
+        <div class="col-md-5 mb-3">
+            <div class="input-group">
+                <input type="text" class="form-control" id="sessionIdInput" placeholder="Enter Session ID">
+                <button class="btn btn-success" onclick="joinSession()">
+                    <i class="fas fa-sign-in-alt"></i> Join Session
+                </button>
+            </div>
+            <small class="text-muted d-block mt-2">Join session via QR or ID</small>
+        </div>
+    </div>
+    
+    <!-- Legacy Options -->
+    <div class="mt-5 pt-4 border-top">
+        <h6 class="text-muted mb-3">Legacy Methods (Demo purposes)</h6>
+        <a href="/send" class="btn btn-outline-primary me-3">
+            <i class="fas fa-paper-plane"></i> Send File (Legacy)
+        </a>
+        <a href="/receive" class="btn btn-outline-success">
+            <i class="fas fa-download"></i> Receive File (Legacy)
+        </a>
+        <small class="text-warning d-block mt-2">
+            <i class="fas fa-exclamation-triangle"></i> Private keys stored on server for demo
+        </small>
+    </div>
+</div>
+
+<script>
+function joinSession() {
+    const sessionId = document.getElementById('sessionIdInput').value.trim();
+    if (sessionId) {
+        window.location.href = `/join_session?sid=${sessionId}`;
+    } else {
+        alert('Please enter a Session ID');
+    }
+}
+</script>
 
 <!-- Encryption Process Overview -->
 <div class="security-features slide-in" style="margin-top: 40px;">

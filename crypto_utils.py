@@ -166,6 +166,7 @@ class AESCrypto:
     
     def encrypt(self, data, key):
         """Encrypt data using AES in CBC mode"""
+        print("AESkey:", key)
         cipher = AES.new(key, AES.MODE_CBC)
         padded_data = pad(data, AES.block_size)
         ciphertext = cipher.encrypt(padded_data)
